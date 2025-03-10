@@ -54,6 +54,8 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
 
     implementation(gradleApi())
+    compileOnly("com.android.tools:common:31.9.0")
+    compileOnly("com.android.tools:sdklib:31.9.0")
     implementation("org.jetbrains:annotations:24.1.0")
     compileOnly("com.android.tools.build:gradle:8.8.0")
     implementation("com.android.tools.build:bundletool:1.17.2")

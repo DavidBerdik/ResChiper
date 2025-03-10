@@ -7,6 +7,7 @@ import io.github.goldfish07.reschiper.plugin.command.model.ObfuscateBundleComman
 import io.github.goldfish07.reschiper.plugin.command.model.StringFilterCommand;
 import io.github.goldfish07.reschiper.plugin.Extension;
 import io.github.goldfish07.reschiper.plugin.ResChiper;
+import io.github.goldfish07.reschiper.plugin.internal.BuildToolInfo;
 import io.github.goldfish07.reschiper.plugin.model.KeyStore;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.DefaultTask;
@@ -35,6 +36,8 @@ public class ResChiperTask extends DefaultTask {
     private String gradleVersion;
     private Path bundlePath;
     private Path obfuscatedBundlePath;
+    private Path universalApkPath;
+    private com.android.sdklib.BuildToolInfo buildToolInfo;
 
     /**
      * Constructor for the ResChiperTask.
@@ -83,12 +86,17 @@ public class ResChiperTask extends DefaultTask {
         logger.log(Level.INFO, resChiperExtension.toString());
         bundlePath = bundleFile.get().getAsFile().toPath();
         obfuscatedBundlePath = new File(bundlePath.toFile().getParentFile(), resChiperExtension.getObfuscatedBundleName()).toPath();
+        universalApkPath = new File(bundlePath.toFile().getParentFile(), resChiperExtension.getUniversalApkName()).toPath();
+        buildToolInfo = BuildToolInfo.getBuildToolInfo(getProject());
         printSignConfiguration();
         printOutputFileLocation();
         prepareUnusedFile();
         Command.Builder builder = Command.builder();
         builder.setBundlePath(bundlePath);
         builder.setOutputPath(obfuscatedBundlePath);
+        builder.setUniversalApkPath(universalApkPath);
+        builder.setBuildUniversalApk(resChiperExtension.getBuildUniversalApk());
+        builder.setBuildToolInfo(buildToolInfo);
 
         ObfuscateBundleCommand.Builder obfuscateBuilder = ObfuscateBundleCommand.builder()
                 .setEnableObfuscate(resChiperExtension.getEnableObfuscation())
