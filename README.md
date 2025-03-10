@@ -158,6 +158,8 @@ configure<io.github.goldfish07.reschiper.plugin.Extension> {
     )
     unusedStringFile = "path/to/your/unused_strings.txt" // strings will be filtered in this file
     localeWhiteList = setOf("en", "in", "fr") // keep en,en-xx,in,in-xx,fr,fr-xx and remove others locale.
+    buildUniversalApk = false // Build a universal APK from the obfuscated bundle
+    universalApkName = "universal.apk" // The name for the built universal APK, must end with ".apk"
 }
 ```
 
@@ -231,6 +233,8 @@ resChiper {
         "in",
         "fr"
     ] // keep en,en-xx,in,in-xx,fr,fr-xx and remove others locale.
+    buildUniversalApk = false // Build a universal APK from the obfuscated bundle
+    universalApkName = "universal.apk" // The name for the built universal APK, must end with '.apk'
 }
 ```
 
@@ -273,6 +277,8 @@ Typical flow:
 | `enableFilterStrings` | `boolean` | `false` | Removes unused strings and optionally filters locales. |
 | `unusedStringFile` | `String` | `""` | Path to a newline-delimited `unused_strings.txt`. |
 | `localeWhiteList` | `Set<String>` | empty | Keeps only listed locales, such as `en`, `fr`, `in`. |
+| `buildUniversalApk` | `boolean` | `false` | Builds a universal APK from the obfuscated bundle when signing is configured. |
+| `universalApkName` | `String` | `"universal.apk"` | Output file name for the universal APK. Must end with `.apk`. |
 
 ## Whitelist Rules
 
@@ -303,6 +309,7 @@ ResChiper writes files into the same bundle output directory as the original `.a
 - obfuscated bundle: the file named by `obfuscatedBundleName`
 - `resources-mapping.txt`: resource name mapping for incremental reuse
 - `<module>-duplicate.txt`: duplicate resource report when duplicate merging is enabled
+- universal APK: the file named by `universalApkName` when `buildUniversalApk` is enabled
 
 ## Sample Projects
 
