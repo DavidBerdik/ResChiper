@@ -8,7 +8,7 @@ import org.jetbrains.annotations.NotNull;
 
 public class AGP {
     public static @NotNull String getAGPVersion(@NotNull Project project) {
-        String agpVersion = "Failed to get AGP version";
+        String agpVersion = "Unknown";
         for (org.gradle.api.artifacts.ResolvedArtifact artifact : project.getRootProject().getBuildscript().getConfigurations().getByName(ScriptHandler.CLASSPATH_CONFIGURATION)
                 .getResolvedConfiguration().getResolvedArtifacts()) {
             DefaultModuleComponentIdentifier identifier = (DefaultModuleComponentIdentifier) artifact.getId().getComponentIdentifier();
