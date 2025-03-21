@@ -1,6 +1,5 @@
 package io.github.goldfish07.reschiper.plugin.internal;
 
-import com.android.build.gradle.api.ApplicationVariant;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.jetbrains.annotations.NotNull;
@@ -11,9 +10,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
 
 public class Bundle {
-    public static @NotNull Path getBundleFilePath(Project project, @NotNull ApplicationVariant variant) {
-        String flavor = variant.getName();
-        return getBundleFileForAGP(project, flavor).toPath();
+    public static @NotNull Path getBundleFilePath(Project project, @NotNull String variant) {
+        return getBundleFileForAGP(project, variant).toPath();
     }
 
     public static @Nullable File getBundleFileForAGP(@NotNull Project project, String flavor) {

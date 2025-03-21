@@ -2,7 +2,7 @@ package io.github.goldfish07.reschiper.plugin;
 
 import com.android.build.gradle.AppExtension;
 import com.android.build.gradle.api.ApplicationVariant;
-import io.github.goldfish07.reschiper.plugin.internal.AGP;
+import io.github.goldfish07.reschiper.plugin.model.KeyStore;
 import io.github.goldfish07.reschiper.plugin.tasks.ResChiperTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
@@ -18,9 +18,17 @@ public class ResChiperPlugin implements Plugin<Project> {
     @Override
     public void apply(@NotNull Project project) {
         checkApplicationPlugin(project);
-        AppExtension android = (AppExtension) project.getExtensions().getByName("android");
-        project.getExtensions().create("resChiper", Extension.class);
-        project.afterEvaluate(project1 -> android.getApplicationVariants().all(variant -> createResChiperTask(project1, variant)));
+
+        project.getPlugins().withId("com.android.application", plugin -> {
+            AppExtension androidExtension = project.getExtensions().getByType(AppExtension.class);
+            //AppExtension android = (AppExtension) project.getExtensions().getByName("android");
+            project.getExtensions().create("resChiper", Extension.class);
+
+            project.afterEvaluate(evaluatedProject -> {
+                // Access all application variants (debug, release, etc.)
+                androidExtension.getApplicationVariants().all(variant -> createResChiperTask(project, variant));
+            });
+        });
     }
 
     /**
@@ -41,11 +49,18 @@ public class ResChiperPlugin implements Plugin<Project> {
         else
             resChiperTask = (ResChiperTask) project.getTasks().getByName(taskName);
 
-        resChiperTask.setVariantScope(variant);
-        resChiperTask.doFirst(task -> {
-            printResChiperBuildConfiguration();
-            printProjectBuildConfiguration(project);
-        });
+        try {
+            KeyStore keyStore = new KeyStore(
+                    variant.getSigningConfig().getStoreFile(),
+                    variant.getSigningConfig().getStorePassword(),
+                    variant.getSigningConfig().getKeyAlias(),
+                    variant.getSigningConfig().getKeyPassword()
+            );
+            resChiperTask.setKeystore(keyStore);
+        } catch (NullPointerException ignored){}
+
+        resChiperTask.setVariantScope(variant.getName());
+        resChiperTask.setProjectFields(project);
 
         Task bundleTask = project.getTasks().getByName(bundleTaskName);
         Task bundlePackageTask = project.getTasks().getByName("package" + variantName + "Bundle");
@@ -65,32 +80,5 @@ public class ResChiperPlugin implements Plugin<Project> {
     private void checkApplicationPlugin(@NotNull Project project) {
         if (!project.getPlugins().hasPlugin("com.android.application"))
             throw new GradleException("Android Application plugin 'com.android.application' is required");
-    }
-
-    /**
-     * Prints the ResChiper build configuration information.
-     */
-    private void printResChiperBuildConfiguration() {
-        System.out.println("----------------------------------------");
-        System.out.println(" ResChiper Plugin Configuration:");
-        System.out.println("----------------------------------------");
-        System.out.println("- ResChiper version:\t" + ResChiper.VERSION);
-        System.out.println("- BundleTool version:\t" + ResChiper.BT_VERSION);
-        System.out.println("- AGP version:\t\t" + ResChiper.AGP_VERSION);
-        System.out.println("- Gradle Wrapper:\t" + ResChiper.GRADLE_WRAPPER_VERSION);
-    }
-
-    /**
-     * Prints the project's build information.
-     *
-     * @param project The Android Gradle project.
-     */
-    private void printProjectBuildConfiguration(@NotNull Project project) {
-        System.out.println("----------------------------------------");
-        System.out.println(" App Build Information:");
-        System.out.println("----------------------------------------");
-        System.out.println("- Project name:\t\t\t" + project.getRootProject().getName());
-        System.out.println("- AGP version:\t\t\t" + AGP.getAGPVersion(project));
-        System.out.println("- Running Gradle version:\t" + project.getGradle().getGradleVersion());
     }
 }
