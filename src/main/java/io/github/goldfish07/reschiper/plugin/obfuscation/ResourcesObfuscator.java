@@ -105,6 +105,7 @@ public class ResourcesObfuscator {
 
         TimeClock timeClock = new TimeClock();
         checkResMappingRules();
+        applyCurrentConfigurationOverrides();
         Map<BundleModuleName, BundleModule> obfuscatedModules = new HashMap<>();
         // generate type entry mapping from mapping rule
         Map<String, Set<String>> typeEntryMapping = generateObfuscatedEntryFilesFromMapping();
@@ -124,6 +125,68 @@ public class ResourcesObfuscator {
         // write mapping rules to file.
         resourceMapping.writeMappingToFile(outputMappingPath);
         return appBundle;
+    }
+
+    private void applyCurrentConfigurationOverrides() {
+        Map<String, String> directoryOverrides = new HashMap<>();
+        Map<String, String> entryPathOverrides = new HashMap<>();
+        Set<String> resourceNameOverrides = new HashSet<>();
+
+        for (Map.Entry<BundleModuleName, BundleModule> moduleEntry : rawAppBundle.getModules().entrySet()) {
+            BundleModule bundleModule = moduleEntry.getValue();
+            String moduleName = bundleModule.getName().getName();
+
+            bundleModule.getEntries().stream()
+                    .filter(entry -> entry.getPath().startsWith(BundleModule.RESOURCES_DIRECTORY))
+                    .forEach(entry -> {
+                        String rawPath = entry.getPath().toString();
+                        String rawDirectory = entry.getPath().getParent().toString();
+                        String bundleRawPath = moduleName + "/" + rawPath;
+                        String existingPath = resourceMapping.getEntryFilesMapping().get(bundleRawPath);
+
+                        if (mode == MODE.FILES || isDirectoryInWhiteList(rawDirectory)) {
+                            directoryOverrides.put(rawDirectory, rawDirectory);
+                            if (existingPath != null)
+                                entryPathOverrides.put(
+                                        bundleRawPath,
+                                        rawDirectory + "/" + FileOperation.getNameFromZipFilePath(existingPath)
+                                );
+                        }
+
+                        if (isFileInWhiteList(rawPath))
+                            entryPathOverrides.put(bundleRawPath, rawPath);
+                    });
+
+            if (bundleModule.getResourceTable().isEmpty())
+                continue;
+
+            ResourcesUtils.entries(bundleModule.getResourceTable().get()).forEach(entry -> {
+                String resourceName = AppBundleUtils.getResourceFullName(entry);
+                if (!isResourceInWhiteList(resourceName))
+                    return;
+
+                resourceNameOverrides.add(resourceName);
+                entry.getEntry().getConfigValueList().stream()
+                        .filter(configValue -> configValue.getValue().getItem().hasFile())
+                        .forEach(configValue -> {
+                            String rawPath = configValue.getValue().getItem().getFile().getPath();
+                            entryPathOverrides.put(moduleName + "/" + rawPath, rawPath);
+                        });
+            });
+        }
+
+        applyWhitelistOverrides(resourceMapping, directoryOverrides, entryPathOverrides, resourceNameOverrides);
+    }
+
+    static void applyWhitelistOverrides(
+            @NotNull ResourceMapping resourceMapping,
+            @NotNull Map<String, String> directoryOverrides,
+            @NotNull Map<String, String> entryPathOverrides,
+            @NotNull Set<String> resourceNameOverrides
+    ) {
+        directoryOverrides.forEach(resourceMapping::putDirMapping);
+        resourceNameOverrides.forEach(resourceMapping.getResourceMapping()::remove);
+        entryPathOverrides.forEach(resourceMapping::putEntryFileMapping);
     }
 
     /**
