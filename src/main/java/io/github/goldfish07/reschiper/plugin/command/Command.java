@@ -163,7 +163,7 @@ public abstract class Command {
             // package bundle
             new AppBundlePackager(appBundle, getOutputPath()).execute();
             // sign bundle
-            if (bundleCommand.getDisableSign().isEmpty() || !bundleCommand.getDisableSign().get()) {
+            if (shouldSign(bundleCommand.getDisableSign())) {
                 AppBundleSigner signer = new AppBundleSigner(getOutputPath());
                 getStoreFile().ifPresent(storeFile -> {
                             if (getStorePassword().isPresent() && getKeyAlias().isPresent() && getKeyPassword().isPresent())
@@ -188,7 +188,7 @@ public abstract class Command {
             // package bundle
             new AppBundlePackager(appBundle, getOutputPath()).execute();
             // sign bundle
-            if (resMergeCommand.getDisableSign().isPresent() || !resMergeCommand.getDisableSign().get()) {
+            if (shouldSign(resMergeCommand.getDisableSign())) {
                 AppBundleSigner signer = new AppBundleSigner(getOutputPath());
                 getStoreFile().ifPresent(storeFile -> {
                     if (getStorePassword().isPresent() && getKeyAlias().isPresent() && getKeyPassword().isPresent())
@@ -210,7 +210,7 @@ public abstract class Command {
             // package bundle
             new AppBundlePackager(filteredAppBundle, getOutputPath()).execute();
             // sign bundle
-            if (fileFilterCommand.getDisableSign().isPresent() || !fileFilterCommand.getDisableSign().get()) {
+            if (shouldSign(fileFilterCommand.getDisableSign())) {
                 AppBundleSigner signer = new AppBundleSigner(getOutputPath());
                 getStoreFile().ifPresent(storeFile -> {
                     if (getStorePassword().isPresent() && getKeyAlias().isPresent() && getKeyPassword().isPresent())
@@ -262,6 +262,10 @@ public abstract class Command {
                 FileOperation.getNetFileSizeDescription(rawSize),
                 FileOperation.getNetFileSizeDescription(filteredSize));
         return getOutputPath();
+    }
+
+    static boolean shouldSign(@NotNull Optional<Boolean> disableSign) {
+        return disableSign.isEmpty() || !disableSign.get();
     }
 
     /**
