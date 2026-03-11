@@ -1,229 +1,211 @@
 # ResChiper
 
-<h1 align="center">
-  <img src="artifacts/reschiper-banner.png" alt="failed to load artifacts/logo.png"/>
-  <p align="center" style="font-size: 0.3em">AAB Resource Obfuscation Tool</p>
-</h1>
+<p align="center">
+  <img src="artifacts/reschiper-banner.png" alt="ResChiper banner" />
+</p>
 
-[![License](https://img.shields.io/badge/license-Apache_2.0-maroon)](LICENSE)
-![Android Gradle Plugin](https://img.shields.io/badge/Dependency-AGP/8.8.0-4CAF50)
-[![BundleTool](https://img.shields.io/badge/Dependency-Bundletool/1.17.2-red)](https://github.com/google/bundletool)
-![JDK Version](https://img.shields.io/badge/JDK-17-blue)
-![Gradle Version](https://img.shields.io/badge/Gradle_Wrapper-8.8-darkgreen)
-[![ResChiper Version](https://img.shields.io/badge/release-0.1.0--rc6-%23C6782A.svg?style=flat)](https://github.com/goldfish07/ResChiper/releases/tag/0.1.0-rc6)
+<p align="center">Gradle plugin for Android App Bundle resource obfuscation, duplicate resource merging, file filtering, and string cleanup.</p>
 
-## Table of Contents
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-maroon" alt="License"></a>
+  <img src="https://img.shields.io/badge/JDK-17-blue" alt="JDK 17">
+  <img src="https://img.shields.io/badge/Bundletool-1.17.2-red" alt="Bundletool 1.17.2">
+  <img src="https://img.shields.io/badge/release-0.1.0--rc6-%23C6782A.svg" alt="Release 0.1.0-rc6">
+</p>
 
-- [Introduction](#introduction)
-- [Getting Started](#getting-started)
-    - [Requirements](#requirements)
-    - [Installation](#installation)
-    - [Usage](#usage)
-- [Configuration Options](#configuration-options)
-- [Example](#example)
-- [WhiteList](#whitelist)
-- [Output](#output)
-- [Acknowledgments](#acknowledgments)
-- [License](#license)
+## Overview
 
-## Introduction
+ResChiper post-processes an Android `.aab` after the normal bundle task runs. It can:
 
-ResChiper is a tool designed for obfuscating Android AAB resources.
-It allows you to protect your resources from unauthorized access and reduce your app's AAB size.
+- obfuscate resource file and directory names
+- reuse a previous mapping file for stable obfuscation output
+- merge duplicate bundled resources to reduce size
+- filter selected files from `META-INF/` and `lib/`
+- remove unused string values and non-whitelisted locales
 
-## Getting Started
-
-Follow these steps to integrate the AAB Resource Obfuscation Tool into your Android project:
+The plugin only supports Android application modules and works on App Bundles, not APKs.
 
 ## Requirements
 
-Before you begin using ResChiper, ensure that your app meets the following requirements:
-
-- **Java Development Kit (JDK)**: ResChiper requires JDK 17, Make sure your app is configured with JDK 17.
-- **Android Gradle Plugin (AGP)**: version 8.0 or later version.
+- JDK 17
+- Android Gradle Plugin 8.x
+- An Android app module using `com.android.application`
+- A build that produces an `.aab` for the target variant
 
 ## Installation
 
-#### 1. Add ResChiper Gradle Plugin
+Published artifact:
 
-In your project's root-level `build.gradle` file, add the ResChiper Gradle plugin to the `buildscript` section:
+```text
+io.github.goldfish07.reschiper:plugin:<version>
+```
 
-```gradle
+Add the dependency in the root build script:
+
+```kotlin
 buildscript {
-  dependencies {
-    classpath "io.github.goldfish07.reschiper:plugin:<latest_version>"
-  }
-  
-  repositories {
-    mavenCentral()
-    google()
-   }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("io.github.goldfish07.reschiper:plugin:0.1.0-rc6")
+    }
 }
 ```
 
-#### 2. Apply the Plugin
+Apply the plugin in the Android application module:
 
-In your app-level `build.gradle` file, apply the ResChiper plugin:
+```kotlin
+plugins {
+    id("com.android.application")
+}
 
-```gradle
+apply(plugin = "io.github.goldfish07.reschiper")
+```
+
+Groovy DSL:
+
+```groovy
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "io.github.goldfish07.reschiper:plugin:0.1.0-rc6"
+    }
+}
+
+apply plugin: "com.android.application"
 apply plugin: "io.github.goldfish07.reschiper"
 ```
 
-#### 3. Configure the Plugin
+## Quick Start
 
-In your `app/build.gradle` file, configure the ResChiper plugin by specifying your desired settings. Here's an example
-configuration:
+Minimal Kotlin DSL configuration:
 
-```gradle
-resChiper {
-    enableObfuscation = true //by default res obfuscate is enabled
-    obfuscationMode = "default" //["dir", "file", "default"]
-    obfuscatedBundleName = "reschiper-app.aab" // Obfuscated file name, must end with '.aab'
-    //mappingFile = file("path/to/your/mapping.txt").toPath() // Mapping file used for incremental obfuscation
-    whiteList = [
-                  //Whitelist rule (directory name to exclude)
-                  "res/raw", // raw dir will not be obfuscated
-                  "res/xml", // xml dir will not be obfuscated
-
-                  //Whitelist rule (file name to exclude)
-                  "res/raw/*", // all files inside raw directory will not be obfuscated
-                  "res/raw/success_tick.json", // success_tick.json file will not be obfuscated
-                  "res/xml/*", // all files inside xml directory will not be obfuscated
-
-                  // White list rules (resource name to exclude)
-                  "*.R.raw.*",
-                  "*.R.xml.*",
-
-                  // for google-services
-                  "*.R.string.google_api_key",
-                  "*.R.string.google_app_id",
-                  "*.R.string.default_web_client_id",
-                  "*.R.string.gcm_defaultSenderId",
-                  "*.R.string.ga_trackingId",
-                  "*.R.string.firebase_database_url",
-                  "*.R.string.google_crash_reporting_api_key",
-                  "*.R.string.google_storage_bucket",
-                  "*.R.integer.google_play_services_version",
-                  
-                  //firebase
-                  "*.R.string.project_id",
-                  //firebase crashlytics
-                  "*.R.string.com.google.firebase.crashlytics.mapping_file_id",
-                  "*.R.bool.com.crashlytics.useFirebaseAppId",
-                  "*.R.string.com.crashlytics.useFirebaseAppId",
-                  "*.R.string.google_app_id",
-                  "*.R.bool.com.crashlytics.CollectDeviceIdentifiers",
-                  "*.R.string.com.crashlytics.CollectDeviceIdentifiers",
-                  "*.R.bool.com.crashlytics.CollectUserIdentifiers",
-                  "*.R.string.com.crashlytics.CollectUserIdentifiers",
-                  "*.R.string.com.crashlytics.ApiEndpoint",
-                  "*.R.string.com.crashlytics.android.build_id",
-                  "*.R.bool.com.crashlytics.RequireBuildId",
-                  "*.R.string.com.crashlytics.RequireBuildId",
-                  "*.R.bool.com.crashlytics.CollectCustomLogs",
-                  "*.R.string.com.crashlytics.CollectCustomLogs",
-                  "*.R.bool.com.crashlytics.Trace",
-                  "*.R.string.com.crashlytics.Trace",
-                  "*.R.string.com.crashlytics.CollectCustomKeys"
-    ]
-    mergeDuplicateResources = true // allow the merge of duplicate resources
-    enableFileFiltering = true
-    enableFilterStrings = true
-    fileFilterList = [ // file filter rules
-                         "META-INF/*",
-//                       "*/armeabi-v7a/*",
-//                       "*/arm64-v8a/*",
-//                       "*/x86/*",
-//                       "*/x86_64/*"
-    ]
-    unusedStringFile = "path/to/your/unused_strings.txt" // strings will be filtered in this file
-    localeWhiteList = ["en", "in", "fr"] //keep en,en-xx,in,in-xx,fr,fr-xx and remove others locale.
+```kotlin
+configure<io.github.goldfish07.reschiper.plugin.Extension> {
+    enableObfuscation = true
+    obfuscationMode = "default"
+    obfuscatedBundleName = "app-obfuscated.aab"
+    whiteList = setOf("*.R.string.app_name")
 }
 ```
 
-## Usage
+Minimal Groovy DSL configuration:
 
-To obfuscate your resources and generate an obfuscated AAB, run the following Gradle command in the project's root
-directory.:
-
-```cmd
-./gradle clean :app:resChiperDebug --stacktrace
+```groovy
+resChiper {
+    enableObfuscation = true
+    obfuscationMode = "default"
+    obfuscatedBundleName = "app-obfuscated.aab"
+    whiteList = [
+        "*.R.string.app_name"
+    ]
+}
 ```
 
-This command will execute the obfuscation process from the project root, and the obfuscated AAB will be generated in
-the `app/build/outputs/bundle/debug` directory.
+Run the regular bundle task for a variant:
 
-## Configuration Options
+```bash
+./gradlew :app:bundleRelease --stacktrace
+```
 
-The ResChiper extension provides various configuration options for resource obfuscation, including enabling/disabling
-obfuscation, specifying mapping files, white-listing resources, and more.
+ResChiper creates variant-specific tasks named `resChiper<Variant>`, so you can also run:
 
-- `enableObfuscation`: Enable or disable resource obfuscation.<br>
-- `obfuscationMode`: to obfuscate only directories set `obfuscationMode = "dir"`, to obfuscate only files set
-  `obfuscationMode = "file"` and to obfuscate both directory and files set `obfuscationMode = "default"`.<br>
-- `enableFilterStrings`: Input the unused file splits by lines to support remove strings.<br>
-- `enableFileFiltering`: Support for filtering files in the bundle package. Currently only supports filtering in
-  the `META-INFO/` and `lib/` paths.<br>
-- `obfuscatedBundleName`: Name of the obfuscated AAB file.<br>
-- `mergeDuplicateResources`: eliminate duplicate resource files and reduce package size.<br>
-- `mappingFile`: Path to the ProGuard mapping file (set only when mapping.txt used for obfuscation).<br>
-- `whiteList`: Set of resource names to exclude from obfuscation.<br>
-- `fileFilterList`: List of file patterns to filter out.<br>
-- `unusedStringFile`: Path to a file containing unused strings.<br>
-- `localeWhiteList`: Set of locales to include in the AAB.
+```bash
+./gradlew :app:resChiperRelease --stacktrace
+```
 
-## Example
+## How It Fits Into the Build
 
-you can check some configuration example [here](https://github.com/goldfish07/ResChiper/wiki/Example-Configuration-Options) 
+For each application variant, the plugin creates a `resChiper<Variant>` task and wires it into `bundle<Variant>`.
 
-## WhiteList
+Typical flow:
 
-resources that are not obfuscated during the build process.<br>
-you can find whitsList configs [here](https://github.com/goldfish07/ResChiper/wiki/WhiteList).
+1. Android packaging/signing tasks produce the source `.aab`.
+2. ResChiper reads that bundle.
+3. Optional filters and duplicate merging run.
+4. Resource obfuscation runs.
+5. A new obfuscated `.aab` is written beside the original bundle output.
 
-## Output
+## Configuration Reference
 
-After running the obfuscation process, you can expect the following output files:
+| Property | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `enableObfuscation` | `boolean` | `true` | Enables resource obfuscation. |
+| `obfuscationMode` | `String` | `"default"` | Supported values: `default`, `dir`, `file`. |
+| `obfuscatedBundleName` | `String` | none | Required output file name for the rewritten bundle. |
+| `mappingFile` | `Path` | `null` | Reuses an existing `resources-mapping.txt` for stable naming. |
+| `whiteList` | `Set<String>` | empty | Excludes matching resources or paths from obfuscation. |
+| `mergeDuplicateResources` | `boolean` | `false` | Merges duplicate bundled resources and emits a duplicate log. |
+| `enableFileFiltering` | `boolean` | `false` | Enables bundle file filtering. |
+| `fileFilterList` | `Set<String>` | empty | Supports filtering within `META-INF/` and `lib/`. |
+| `enableFilterStrings` | `boolean` | `false` | Removes unused strings and optionally filters locales. |
+| `unusedStringFile` | `String` | `""` | Path to a newline-delimited `unused_strings.txt`. |
+| `localeWhiteList` | `Set<String>` | empty | Keeps only listed locales, such as `en`, `fr`, `in`. |
 
-- **aab:** This is the obfuscated bundle package, which contains your Android App Bundle (AAB) with obfuscated
-  resources.
-- **resources-mapping.txt:** This file contains the resource obfuscation mapping. It can be used as input for future
-  obfuscation processes to achieve incremental obfuscation. This is especially useful if you want to maintain
-  consistency across different builds.
-- **-duplicated.txt:** This log file provides information about merged resources. It helps you identify and track any
-  duplicate resources that were merged during the obfuscation process.
+## Whitelist Rules
 
-These output files will be generated as a result of running the ResChiper tool, and you can find them in the relevant
-directories within your project's build output.
+`whiteList` accepts glob-style rules. Common patterns:
+
+```kotlin
+whiteList = setOf(
+    "res/raw",
+    "res/raw/*",
+    "res/xml/*",
+    "*.R.raw.*",
+    "*.R.xml.*",
+    "*.R.string.google_app_id",
+    "*.R.string.app_name"
+)
+```
+
+Use whitelist rules for:
+
+- resource directories or files that must keep stable names
+- generated resources from Google services or Firebase
+- assets referenced by external systems or dynamic loaders
+
+## Output Files
+
+ResChiper writes files into the same bundle output directory as the original `.aab`.
+
+- obfuscated bundle: the file named by `obfuscatedBundleName`
+- `resources-mapping.txt`: resource name mapping for incremental reuse
+- `<module>-duplicate.txt`: duplicate resource report when duplicate merging is enabled
+
+## Sample Projects
+
+This repository includes two runnable sample apps:
+
+- [sample-app](sample-app) for Kotlin DSL
+- [sample-app-groovy](sample-app-groovy) for Groovy DSL
+
+They are configured for local plugin development with a composite build, so you can test the plugin without publishing it first.
+
+Example commands:
+
+```bash
+./gradlew -p sample-app bundleDebug --stacktrace
+./gradlew -p sample-app-groovy bundleDebug --stacktrace
+```
+
+## Notes and Limitations
+
+- ResChiper requires `com.android.application`; library modules are rejected.
+- The plugin is designed around `.aab` processing.
+- If you enable file filtering, only `META-INF/` and `lib/` entries are supported by the implementation.
+- If you enable string filtering, provide `unusedStringFile` unless your build already produces an `unused_strings.txt` report that ResChiper can reuse.
 
 ## Acknowledgments
 
-ResChiper is inspired by the following projects and tools:
-
-* [AabResGuard](https://github.com/bytedance/AabResGuard/)
-* [AndResGuard](https://github.com/shwenzhang/AndResGuard/)
-* [BundleTool](https://github.com/google/bundletool)
+- [AabResGuard](https://github.com/bytedance/AabResGuard/)
+- [AndResGuard](https://github.com/shwenzhang/AndResGuard/)
+- [Bundletool](https://github.com/google/bundletool)
 
 ## License
 
-[![Apache License v2.0 logo](artifacts/apache-licence-logo.png)](https://www.apache.org/licenses/LICENSE-2.0.txt)
-
-    Copyright (C) 2023 goldfish07 (Ayush Bisht) <ayushbisht5663@gmail.com>
-    This file is part of ResChiper.
-
-    ResChiper is free software: you can redistribute it and/or modify
-    it under the terms of the Apache License, Version 2.0 as published by
-    the Apache Software Foundation, either version 2.0 of the License, or
-    (at your option) any later version.
-
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-        http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
+ResChiper is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
