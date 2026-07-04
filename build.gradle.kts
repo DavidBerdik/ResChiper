@@ -1,11 +1,14 @@
+import org.gradle.plugin.compatibility.compatibility
+
 plugins {
     id("java-gradle-plugin")
+    id("com.gradle.plugin-publish") version "2.1.1"
     id("maven-publish")
     id("signing")
 }
 
 group = "io.github.goldfish07.reschiper"
-version = "0.1.0-rc6"
+version = "0.1.0-rc7"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -13,12 +16,20 @@ java {
 }
 
 gradlePlugin {
+    website.set("https://github.com/goldfish07/reschiper")
+    vcsUrl.set("https://github.com/goldfish07/reschiper")
     plugins {
         create("resChiper") {
             id = "io.github.goldfish07.reschiper"
             implementationClass = "io.github.goldfish07.reschiper.plugin.ResChiperPlugin"
             displayName = "ResChiper"
             description = "Android App Bundle resource obfuscation plugin"
+            tags.set(listOf("android", "aab", "resources", "obfuscation", "bundle"))
+            compatibility {
+                features {
+                    configurationCache = true
+                }
+            }
         }
     }
 }
@@ -103,7 +114,8 @@ publishing {
     repositories {
         mavenLocal()
         maven {
-            url = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+            name = "ossrhStagingApi"
+            url = uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
             credentials {
                 username = project.findProperty("ossrhUsername").toString()
                 password = project.findProperty("ossrhPassword").toString()
