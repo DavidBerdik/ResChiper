@@ -40,7 +40,16 @@ Published artifact:
 io.github.goldfish07.reschiper:plugin:<version>
 ```
 
-Add the dependency in the root build script:
+Recommended Kotlin DSL usage:
+
+```kotlin
+plugins {
+    id("com.android.application")
+    id("io.github.goldfish07.reschiper") version "0.1.0-rc6"
+}
+```
+
+Legacy classpath usage is also supported. Add the dependency in the root build script:
 
 ```kotlin
 buildscript {
@@ -54,7 +63,7 @@ buildscript {
 }
 ```
 
-Apply the plugin in the Android application module:
+Then apply the plugin in the Android application module:
 
 ```kotlin
 plugins {
