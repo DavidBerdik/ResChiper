@@ -1,16 +1,16 @@
 package io.github.goldfish07.reschiper.plugin.tasks;
 
-import com.android.build.gradle.api.ApplicationVariant;
 import io.github.goldfish07.reschiper.plugin.command.Command;
 import io.github.goldfish07.reschiper.plugin.command.model.DuplicateResMergerCommand;
 import io.github.goldfish07.reschiper.plugin.command.model.FileFilterCommand;
 import io.github.goldfish07.reschiper.plugin.command.model.ObfuscateBundleCommand;
 import io.github.goldfish07.reschiper.plugin.command.model.StringFilterCommand;
 import io.github.goldfish07.reschiper.plugin.Extension;
+import io.github.goldfish07.reschiper.plugin.ResChiper;
 import io.github.goldfish07.reschiper.plugin.model.KeyStore;
-import io.github.goldfish07.reschiper.plugin.internal.Bundle;
-import io.github.goldfish07.reschiper.plugin.internal.SigningConfig;
+import org.gradle.api.file.RegularFile;
 import org.gradle.api.DefaultTask;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskAction;
 import org.jetbrains.annotations.NotNull;
 
@@ -25,11 +25,14 @@ import java.util.logging.Logger;
 public class ResChiperTask extends DefaultTask {
 
     private static final Logger logger = Logger.getLogger(ResChiperTask.class.getName());
-    private final Extension resChiperExtension = (Extension) getProject().getExtensions().getByName("resChiper");
-    private ApplicationVariant variant;
+    private Extension resChiperExtension;
     private String variantName;
-    private String buildTypeName;
     private KeyStore keyStore;
+    private Provider<RegularFile> bundleFile;
+    private File buildDirectory;
+    private String projectName;
+    private String agpVersion;
+    private String gradleVersion;
     private Path bundlePath;
     private Path obfuscatedBundlePath;
 
@@ -42,24 +45,30 @@ public class ResChiperTask extends DefaultTask {
         getOutputs().upToDateWhen(task -> false);
     }
 
-    /**
-     * Sets the variant scope for the task.
-     *
-     * @param variant The ApplicationVariant for the Android application.
-     */
-    public void setVariantScope(ApplicationVariant variant) {
-        this.variant = variant;
-        this.variantName = variant.getName();
-        this.buildTypeName = variant.getBuildType().getName();
-    }
-
-    public void setVariantName(String variantName) {
+    public void setVariant(String variantName) {
         this.variantName = variantName;
     }
 
-    public void setVariant(String variantName, String buildTypeName) {
-        this.variantName = variantName;
-        this.buildTypeName = buildTypeName;
+    public void setResChiperExtension(Extension resChiperExtension) {
+        this.resChiperExtension = resChiperExtension;
+    }
+
+    public void setKeyStore(KeyStore keyStore) {
+        this.keyStore = keyStore;
+    }
+
+    public void setBundleFile(Provider<RegularFile> bundleFile) {
+        this.bundleFile = bundleFile;
+    }
+
+    public void setBuildDirectory(File buildDirectory) {
+        this.buildDirectory = buildDirectory;
+    }
+
+    public void setBuildConfiguration(String projectName, String agpVersion, String gradleVersion) {
+        this.projectName = projectName;
+        this.agpVersion = agpVersion;
+        this.gradleVersion = gradleVersion;
     }
 
     /**
@@ -69,10 +78,11 @@ public class ResChiperTask extends DefaultTask {
      */
     @TaskAction
     public void execute() throws Exception {
+        printResChiperBuildConfiguration();
+        printProjectBuildConfiguration();
         logger.log(Level.INFO, resChiperExtension.toString());
-        bundlePath = Bundle.getBundleFilePath(getProject(), variantName);
+        bundlePath = bundleFile.get().getAsFile().toPath();
         obfuscatedBundlePath = new File(bundlePath.toFile().getParentFile(), resChiperExtension.getObfuscatedBundleName()).toPath();
-        keyStore = variant == null ? SigningConfig.getSigningConfig(getProject(), buildTypeName) : SigningConfig.getSigningConfig(variant);
         printSignConfiguration();
         printOutputFileLocation();
         prepareUnusedFile();
@@ -116,12 +126,37 @@ public class ResChiperTask extends DefaultTask {
     }
 
     /**
+     * Prints the ResChiper build configuration information.
+     */
+    private void printResChiperBuildConfiguration() {
+        System.out.println("----------------------------------------");
+        System.out.println(" ResChiper Plugin Configuration:");
+        System.out.println("----------------------------------------");
+        System.out.println("- ResChiper version:\t" + ResChiper.VERSION);
+        System.out.println("- BundleTool version:\t" + ResChiper.BT_VERSION);
+        System.out.println("- AGP version:\t\t" + ResChiper.AGP_VERSION);
+        System.out.println("- Gradle Wrapper:\t" + ResChiper.GRADLE_WRAPPER_VERSION);
+    }
+
+    /**
+     * Prints the project's build information.
+     */
+    private void printProjectBuildConfiguration() {
+        System.out.println("----------------------------------------");
+        System.out.println(" App Build Information:");
+        System.out.println("----------------------------------------");
+        System.out.println("- Project name:\t\t\t" + projectName);
+        System.out.println("- AGP version:\t\t\t" + agpVersion);
+        System.out.println("- Running Gradle version:\t" + gradleVersion);
+    }
+
+    /**
      * Prepares the unused file for filtering.
      */
     private void prepareUnusedFile() {
         String simpleName = variantName.replace("Release", "");
         String name = Character.toLowerCase(simpleName.charAt(0)) + simpleName.substring(1);
-        String resourcePath = getProject().getBuildDir() + "/outputs/mapping/" + name + "/release/unused_strings.txt";
+        String resourcePath = buildDirectory + "/outputs/mapping/" + name + "/release/unused_strings.txt";
         File usedFile = new File(resourcePath);
 
         if (usedFile.exists()) {
