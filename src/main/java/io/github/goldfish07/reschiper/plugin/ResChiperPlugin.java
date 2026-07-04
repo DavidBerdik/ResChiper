@@ -1,13 +1,16 @@
 package io.github.goldfish07.reschiper.plugin;
 
+import com.android.build.api.variant.ApplicationAndroidComponentsExtension;
 import com.android.build.gradle.AppExtension;
 import com.android.build.gradle.api.ApplicationVariant;
 import io.github.goldfish07.reschiper.plugin.internal.AGP;
 import io.github.goldfish07.reschiper.plugin.tasks.ResChiperTask;
 import org.gradle.api.GradleException;
+import org.gradle.api.Action;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.tasks.TaskProvider;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -18,9 +21,19 @@ public class ResChiperPlugin implements Plugin<Project> {
     @Override
     public void apply(@NotNull Project project) {
         checkApplicationPlugin(project);
-        AppExtension android = (AppExtension) project.getExtensions().getByName("android");
         project.getExtensions().create("resChiper", Extension.class);
-        project.afterEvaluate(project1 -> android.getApplicationVariants().all(variant -> createResChiperTask(project1, variant)));
+        Object android = project.getExtensions().getByName("android");
+        if (android instanceof AppExtension appExtension) {
+            project.afterEvaluate(project1 -> appExtension.getApplicationVariants().all(variant -> createResChiperTask(project1, variant)));
+        } else {
+            ApplicationAndroidComponentsExtension androidComponents =
+                    project.getExtensions().getByType(ApplicationAndroidComponentsExtension.class);
+            androidComponents.onVariants(
+                    androidComponents.selector().all(),
+                    (Action<com.android.build.api.variant.ApplicationVariant>) variant ->
+                            createResChiperTask(project, variant.getName(), variant.getBuildType())
+            );
+        }
     }
 
     /**
@@ -55,6 +68,28 @@ public class ResChiperPlugin implements Plugin<Project> {
         String finalizeBundleTaskName = "sign" + variantName + "Bundle";
         if (project.getTasks().findByName(finalizeBundleTaskName) != null)
             resChiperTask.dependsOn(project.getTasks().getByName(finalizeBundleTaskName));
+    }
+
+    private void createResChiperTask(@NotNull Project project, @NotNull String rawVariantName, @NotNull String buildTypeName) {
+        String variantName = rawVariantName.substring(0, 1).toUpperCase() + rawVariantName.substring(1);
+        String bundleTaskName = "bundle" + variantName;
+        String taskName = "resChiper" + variantName;
+        String packageBundleTaskName = "package" + variantName + "Bundle";
+        String finalizeBundleTaskName = "sign" + variantName + "Bundle";
+
+        TaskProvider<ResChiperTask> resChiperTask = project.getTasks().register(taskName, ResChiperTask.class, task -> {
+            task.setVariant(rawVariantName, buildTypeName);
+            task.dependsOn(packageBundleTaskName);
+            task.dependsOn(finalizeBundleTaskName);
+            task.doFirst(it -> {
+                printResChiperBuildConfiguration();
+                printProjectBuildConfiguration(project);
+            });
+        });
+
+        project.getTasks()
+                .matching(task -> task.getName().equals(bundleTaskName))
+                .configureEach(task -> task.dependsOn(resChiperTask));
     }
 
     /**

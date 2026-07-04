@@ -1,5 +1,5 @@
 plugins {
-    id("java")
+    id("java-gradle-plugin")
     id("maven-publish")
     id("signing")
 }
@@ -10,6 +10,17 @@ version = "0.1.0-rc6"
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
+}
+
+gradlePlugin {
+    plugins {
+        create("resChiper") {
+            id = "io.github.goldfish07.reschiper"
+            implementationClass = "io.github.goldfish07.reschiper.plugin.ResChiperPlugin"
+            displayName = "ResChiper"
+            description = "Android App Bundle resource obfuscation plugin"
+        }
+    }
 }
 
 val sourcesJar by tasks.registering(Jar::class) {
@@ -33,7 +44,7 @@ dependencies {
 
     implementation(gradleApi())
     implementation("org.jetbrains:annotations:24.1.0")
-    implementation("com.android.tools.build:gradle:8.8.0")
+    compileOnly("com.android.tools.build:gradle:8.8.0")
     implementation("com.android.tools.build:bundletool:1.17.2")
     implementation("com.google.guava:guava:32.1.3-jre")
     implementation("io.grpc:grpc-protobuf:1.59.1")

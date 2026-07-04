@@ -12,7 +12,10 @@ import java.nio.file.Path;
 
 public class Bundle {
     public static @NotNull Path getBundleFilePath(Project project, @NotNull ApplicationVariant variant) {
-        String flavor = variant.getName();
+        return getBundleFilePath(project, variant.getName());
+    }
+
+    public static @NotNull Path getBundleFilePath(Project project, @NotNull String flavor) {
         return getBundleFileForAGP(project, flavor).toPath();
     }
 

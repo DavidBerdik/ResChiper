@@ -27,6 +27,8 @@ public class ResChiperTask extends DefaultTask {
     private static final Logger logger = Logger.getLogger(ResChiperTask.class.getName());
     private final Extension resChiperExtension = (Extension) getProject().getExtensions().getByName("resChiper");
     private ApplicationVariant variant;
+    private String variantName;
+    private String buildTypeName;
     private KeyStore keyStore;
     private Path bundlePath;
     private Path obfuscatedBundlePath;
@@ -47,8 +49,17 @@ public class ResChiperTask extends DefaultTask {
      */
     public void setVariantScope(ApplicationVariant variant) {
         this.variant = variant;
-        bundlePath = Bundle.getBundleFilePath(getProject(), variant);
-        obfuscatedBundlePath = new File(bundlePath.toFile().getParentFile(), resChiperExtension.getObfuscatedBundleName()).toPath();
+        this.variantName = variant.getName();
+        this.buildTypeName = variant.getBuildType().getName();
+    }
+
+    public void setVariantName(String variantName) {
+        this.variantName = variantName;
+    }
+
+    public void setVariant(String variantName, String buildTypeName) {
+        this.variantName = variantName;
+        this.buildTypeName = buildTypeName;
     }
 
     /**
@@ -59,7 +70,9 @@ public class ResChiperTask extends DefaultTask {
     @TaskAction
     public void execute() throws Exception {
         logger.log(Level.INFO, resChiperExtension.toString());
-        keyStore = SigningConfig.getSigningConfig(variant);
+        bundlePath = Bundle.getBundleFilePath(getProject(), variantName);
+        obfuscatedBundlePath = new File(bundlePath.toFile().getParentFile(), resChiperExtension.getObfuscatedBundleName()).toPath();
+        keyStore = variant == null ? SigningConfig.getSigningConfig(getProject(), buildTypeName) : SigningConfig.getSigningConfig(variant);
         printSignConfiguration();
         printOutputFileLocation();
         prepareUnusedFile();
@@ -106,7 +119,7 @@ public class ResChiperTask extends DefaultTask {
      * Prepares the unused file for filtering.
      */
     private void prepareUnusedFile() {
-        String simpleName = variant.getName().replace("Release", "");
+        String simpleName = variantName.replace("Release", "");
         String name = Character.toLowerCase(simpleName.charAt(0)) + simpleName.substring(1);
         String resourcePath = getProject().getBuildDir() + "/outputs/mapping/" + name + "/release/unused_strings.txt";
         File usedFile = new File(resourcePath);
