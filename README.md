@@ -92,27 +92,145 @@ apply plugin: "io.github.goldfish07.reschiper"
 
 ## Quick Start
 
-Minimal Kotlin DSL configuration:
+Full Kotlin DSL configuration:
 
 ```kotlin
 configure<io.github.goldfish07.reschiper.plugin.Extension> {
-    enableObfuscation = true
-    obfuscationMode = "default"
-    obfuscatedBundleName = "app-obfuscated.aab"
-    whiteList = setOf("*.R.string.app_name")
+    enableObfuscation = true // by default res obfuscate is enabled
+    obfuscationMode = "default" // ["dir", "file", "default"]
+    obfuscatedBundleName = "reschiper-app.aab" // Obfuscated file name, must end with ".aab"
+    // mappingFile = file("path/to/your/mapping.txt").toPath() // Mapping file used for incremental obfuscation
+    whiteList = setOf(
+        // Whitelist rule (directory name to exclude)
+        "res/raw", // raw dir will not be obfuscated
+        "res/xml", // xml dir will not be obfuscated
+
+        // Whitelist rule (file name to exclude)
+        "res/raw/*", // all files inside raw directory will not be obfuscated
+        "res/raw/success_tick.json", // success_tick.json file will not be obfuscated
+        "res/xml/*", // all files inside xml directory will not be obfuscated
+
+        // Whitelist rules (resource name to exclude)
+        "*.R.raw.*",
+        "*.R.xml.*",
+
+        // for google-services
+        "*.R.string.google_api_key",
+        "*.R.string.google_app_id",
+        "*.R.string.default_web_client_id",
+        "*.R.string.gcm_defaultSenderId",
+        "*.R.string.ga_trackingId",
+        "*.R.string.firebase_database_url",
+        "*.R.string.google_crash_reporting_api_key",
+        "*.R.string.google_storage_bucket",
+        "*.R.integer.google_play_services_version",
+
+        // firebase
+        "*.R.string.project_id",
+        // firebase crashlytics
+        "*.R.string.com.google.firebase.crashlytics.mapping_file_id",
+        "*.R.bool.com.crashlytics.useFirebaseAppId",
+        "*.R.string.com.crashlytics.useFirebaseAppId",
+        "*.R.string.google_app_id",
+        "*.R.bool.com.crashlytics.CollectDeviceIdentifiers",
+        "*.R.string.com.crashlytics.CollectDeviceIdentifiers",
+        "*.R.bool.com.crashlytics.CollectUserIdentifiers",
+        "*.R.string.com.crashlytics.CollectUserIdentifiers",
+        "*.R.string.com.crashlytics.ApiEndpoint",
+        "*.R.string.com.crashlytics.android.build_id",
+        "*.R.bool.com.crashlytics.RequireBuildId",
+        "*.R.string.com.crashlytics.RequireBuildId",
+        "*.R.bool.com.crashlytics.CollectCustomLogs",
+        "*.R.string.com.crashlytics.CollectCustomLogs",
+        "*.R.bool.com.crashlytics.Trace",
+        "*.R.string.com.crashlytics.Trace",
+        "*.R.string.com.crashlytics.CollectCustomKeys"
+    )
+    mergeDuplicateResources = true // allow the merge of duplicate resources
+    enableFileFiltering = true
+    enableFilterStrings = true
+    fileFilterList = setOf( // file filter rules
+        "META-INF/*",
+        // "*/armeabi-v7a/*",
+        // "*/arm64-v8a/*",
+        // "*/x86/*",
+        // "*/x86_64/*"
+    )
+    unusedStringFile = "path/to/your/unused_strings.txt" // strings will be filtered in this file
+    localeWhiteList = setOf("en", "in", "fr") // keep en,en-xx,in,in-xx,fr,fr-xx and remove others locale.
 }
 ```
 
-Minimal Groovy DSL configuration:
+Groovy DSL configuration:
 
 ```groovy
 resChiper {
-    enableObfuscation = true
-    obfuscationMode = "default"
-    obfuscatedBundleName = "app-obfuscated.aab"
+    enableObfuscation = true // by default res obfuscate is enabled
+    obfuscationMode = "default" // ["dir", "file", "default"]
+    obfuscatedBundleName = "reschiper-app.aab" // Obfuscated file name, must end with '.aab'
+    // mappingFile = file("path/to/your/mapping.txt").toPath() // Mapping file used for incremental obfuscation
     whiteList = [
-        "*.R.string.app_name"
+        // Whitelist rule (directory name to exclude)
+        "res/raw", // raw dir will not be obfuscated
+        "res/xml", // xml dir will not be obfuscated
+
+        // Whitelist rule (file name to exclude)
+        "res/raw/*", // all files inside raw directory will not be obfuscated
+        "res/raw/success_tick.json", // success_tick.json file will not be obfuscated
+        "res/xml/*", // all files inside xml directory will not be obfuscated
+
+        // Whitelist rules (resource name to exclude)
+        "*.R.raw.*",
+        "*.R.xml.*",
+
+        // for google-services
+        "*.R.string.google_api_key",
+        "*.R.string.google_app_id",
+        "*.R.string.default_web_client_id",
+        "*.R.string.gcm_defaultSenderId",
+        "*.R.string.ga_trackingId",
+        "*.R.string.firebase_database_url",
+        "*.R.string.google_crash_reporting_api_key",
+        "*.R.string.google_storage_bucket",
+        "*.R.integer.google_play_services_version",
+
+        // firebase
+        "*.R.string.project_id",
+        // firebase crashlytics
+        "*.R.string.com.google.firebase.crashlytics.mapping_file_id",
+        "*.R.bool.com.crashlytics.useFirebaseAppId",
+        "*.R.string.com.crashlytics.useFirebaseAppId",
+        "*.R.string.google_app_id",
+        "*.R.bool.com.crashlytics.CollectDeviceIdentifiers",
+        "*.R.string.com.crashlytics.CollectDeviceIdentifiers",
+        "*.R.bool.com.crashlytics.CollectUserIdentifiers",
+        "*.R.string.com.crashlytics.CollectUserIdentifiers",
+        "*.R.string.com.crashlytics.ApiEndpoint",
+        "*.R.string.com.crashlytics.android.build_id",
+        "*.R.bool.com.crashlytics.RequireBuildId",
+        "*.R.string.com.crashlytics.RequireBuildId",
+        "*.R.bool.com.crashlytics.CollectCustomLogs",
+        "*.R.string.com.crashlytics.CollectCustomLogs",
+        "*.R.bool.com.crashlytics.Trace",
+        "*.R.string.com.crashlytics.Trace",
+        "*.R.string.com.crashlytics.CollectCustomKeys"
     ]
+    mergeDuplicateResources = true // allow the merge of duplicate resources
+    enableFileFiltering = true
+    enableFilterStrings = true
+    fileFilterList = [ // file filter rules
+        "META-INF/*",
+        // "*/armeabi-v7a/*",
+        // "*/arm64-v8a/*",
+        // "*/x86/*",
+        // "*/x86_64/*"
+    ]
+    unusedStringFile = "path/to/your/unused_strings.txt" // strings will be filtered in this file
+    localeWhiteList = [
+        "en",
+        "in",
+        "fr"
+    ] // keep en,en-xx,in,in-xx,fr,fr-xx and remove others locale.
 }
 ```
 
