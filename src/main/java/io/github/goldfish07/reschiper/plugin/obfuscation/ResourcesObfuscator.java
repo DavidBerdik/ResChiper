@@ -153,8 +153,11 @@ public class ResourcesObfuscator {
                                 );
                         }
 
-                        if (isFileInWhiteList(rawPath))
-                            entryPathOverrides.put(bundleRawPath, rawPath);
+                        if (isFileInWhiteList(rawPath)) {
+                            String whitelistedFilePath = getWhitelistedFilePath(rawPath, rawDirectory, existingPath, isDirectoryInWhiteList(rawDirectory));
+                            if (whitelistedFilePath != null)
+                                entryPathOverrides.put(bundleRawPath, whitelistedFilePath);
+                        }
                     });
 
             if (bundleModule.getResourceTable().isEmpty())
@@ -187,6 +190,20 @@ public class ResourcesObfuscator {
         directoryOverrides.forEach(resourceMapping::putDirMapping);
         resourceNameOverrides.forEach(resourceMapping.getResourceMapping()::remove);
         entryPathOverrides.forEach(resourceMapping::putEntryFileMapping);
+    }
+
+    static @Nullable String getWhitelistedFilePath(
+            @NotNull String rawPath,
+            @NotNull String rawDirectory,
+            @Nullable String existingPath,
+            boolean isDirectoryWhitelisted
+    ) {
+        String fileName = FileOperation.getNameFromZipFilePath(rawPath);
+        if (isDirectoryWhitelisted)
+            return rawDirectory + "/" + fileName;
+        if (existingPath == null)
+            return null;
+        return FileOperation.getParentFromZipFilePath(existingPath) + "/" + fileName;
     }
 
     /**

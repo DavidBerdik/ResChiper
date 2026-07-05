@@ -8,6 +8,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ResourcesObfuscatorTest {
@@ -55,5 +56,43 @@ class ResourcesObfuscatorTest {
                 "res/raw/com_android_billingclient_heterodyne_info",
                 Set.of("res/raw/*")
         ));
+    }
+
+    @Test
+    void fileWhitelistKeepsExistingObfuscatedDirectory() {
+        assertEquals(
+                "res/a/com_android_billingclient_heterodyne_info",
+                ResourcesObfuscator.getWhitelistedFilePath(
+                        "res/raw/com_android_billingclient_heterodyne_info",
+                        "res/raw",
+                        "res/a/b",
+                        false
+                )
+        );
+    }
+
+    @Test
+    void fileWhitelistWithDirectoryWhitelistKeepsFullRawPath() {
+        assertEquals(
+                "res/raw/com_android_billingclient_heterodyne_info",
+                ResourcesObfuscator.getWhitelistedFilePath(
+                        "res/raw/com_android_billingclient_heterodyne_info",
+                        "res/raw",
+                        "res/a/b",
+                        true
+                )
+        );
+    }
+
+    @Test
+    void fileWhitelistWithoutExistingMappingIsResolvedDuringEntryObfuscation() {
+        assertNull(
+                ResourcesObfuscator.getWhitelistedFilePath(
+                        "res/raw/com_android_billingclient_heterodyne_info",
+                        "res/raw",
+                        null,
+                        false
+                )
+        );
     }
 }
