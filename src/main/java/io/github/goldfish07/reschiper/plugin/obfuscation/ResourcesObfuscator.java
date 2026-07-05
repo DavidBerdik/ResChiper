@@ -469,6 +469,10 @@ public class ResourcesObfuscator {
      * @return `true` if the file entry is in the whitelist, `false` otherwise.
      */
     private boolean isFileInWhiteList(@NotNull String entry) {
+        return isFileInWhiteList(entry, whiteListRules);
+    }
+
+    static boolean isFileInWhiteList(@NotNull String entry, @NotNull Set<String> whiteListRules) {
         String filename = new File(entry).getName(); // filename: filename.{extension} eg: success_tick.json
         String dir = entry.replace("/" + filename, "");
         for (String rule : whiteListRules) {

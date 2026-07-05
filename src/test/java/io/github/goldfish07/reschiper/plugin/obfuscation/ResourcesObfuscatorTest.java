@@ -8,6 +8,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ResourcesObfuscatorTest {
 
@@ -46,5 +47,13 @@ class ResourcesObfuscatorTest {
 
         assertFalse(resourceMapping.getResourceMapping().containsKey("io.github.goldfish07.reschiper.sample.R.raw.sample_payload"));
         assertEquals("res/raw/sample_payload.json", resourceMapping.getEntryFilesMapping().get("base/res/raw/sample_payload.json"));
+    }
+
+    @Test
+    void rawWildcardWhitelistMatchesExtensionlessResourceFiles() {
+        assertTrue(ResourcesObfuscator.isFileInWhiteList(
+                "res/raw/com_android_billingclient_heterodyne_info",
+                Set.of("res/raw/*")
+        ));
     }
 }
