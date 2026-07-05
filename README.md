@@ -10,7 +10,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-maroon" alt="License"></a>
   <img src="https://img.shields.io/badge/JDK-17-blue" alt="JDK 17">
   <img src="https://img.shields.io/badge/Bundletool-1.17.2-red" alt="Bundletool 1.17.2">
-  <img src="https://img.shields.io/badge/release-0.1.0--rc7-%23C6782A.svg" alt="Release 0.1.0-rc7">
+  <img src="https://img.shields.io/badge/release-0.1.0--rc7.1-%23C6782A.svg" alt="Release 0.1.0-rc7.1">
 </p>
 
 ## Overview
@@ -45,7 +45,7 @@ Recommended Kotlin DSL usage:
 ```kotlin
 plugins {
     id("com.android.application")
-    id("io.github.goldfish07.reschiper") version "0.1.0-rc7"
+    id("io.github.goldfish07.reschiper") version "0.1.0-rc7.1"
 }
 ```
 
@@ -58,7 +58,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath("io.github.goldfish07.reschiper:plugin:0.1.0-rc7")
+        classpath("io.github.goldfish07.reschiper:plugin:0.1.0-rc7.1")
     }
 }
 ```
@@ -82,7 +82,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "io.github.goldfish07.reschiper:plugin:0.1.0-rc7"
+        classpath "io.github.goldfish07.reschiper:plugin:0.1.0-rc7.1"
     }
 }
 
