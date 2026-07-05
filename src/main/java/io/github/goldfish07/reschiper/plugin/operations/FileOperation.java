@@ -219,7 +219,7 @@ public class FileOperation {
     public static @NotNull String getFileSuffix(@NotNull ZipPath zipPath) {
         String fileName = zipPath.getName(zipPath.getNameCount() - 1).toString();
         if (!fileName.contains(".")) {
-            return fileName;
+            return "";
         }
         String[] values = fileName.replace(".", "/").split("/");
         return fileName.substring(values[0].length());
@@ -261,7 +261,7 @@ public class FileOperation {
      */
     public static String getFilePrefixByFileName(@NotNull String fileName) {
         if (!fileName.contains(".")) {
-            throw new IllegalArgumentException("invalid file name: " + fileName);
+            return fileName;
         }
         String[] values = fileName.replace(".", "/").split("/");
         return values[0];
