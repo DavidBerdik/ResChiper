@@ -34,16 +34,6 @@ gradlePlugin {
     }
 }
 
-val sourcesJar by tasks.registering(Jar::class) {
-    from(sourceSets["main"].allJava)
-    archiveClassifier.set("sources")
-}
-
-val javadocJar by tasks.registering(Jar::class) {
-    from(tasks.javadoc)
-    archiveClassifier.set("javadoc")
-}
-
 repositories {
     mavenCentral()
     google()
@@ -83,8 +73,6 @@ publishing {
             artifactId = "plugin"
             description = "AAB Resource Obfuscation Tool"
             from(components["java"])
-            artifact(sourcesJar)
-            artifact(javadocJar)
 
             pom {
                 packaging = "jar"
@@ -129,5 +117,9 @@ publishing {
 }
 
 signing {
-    sign(publishing.publications["mavenJava"])
+    // Allow publishToMavenLocal without a GPG key; enable signing for release publishes.
+    isRequired = gradle.startParameter.taskNames.any { taskName ->
+        taskName.contains("publish", ignoreCase = true)
+                && !taskName.contains("MavenLocal", ignoreCase = true)
+    }
 }
