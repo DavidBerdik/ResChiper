@@ -76,8 +76,9 @@ public class ResChiperPlugin implements Plugin<Project> {
             return;
         Task finalizeBundleTask = project.getTasks().getByName(finalizeBundleTaskName);
         resChiperTask.setVariant(variant.getName());
+        resChiperTask.setBuildType(variant.getBuildType().getName());
         resChiperTask.setResChiperExtension(extension);
-        resChiperTask.setKeyStore(SigningConfig.getSigningConfig(variant));
+        resChiperTask.setKeyStore(SigningConfig.getSigningConfig(project, variant));
         resChiperTask.setBundleFile(getBundleFileProvider(finalizeBundleTask));
         resChiperTask.setBuildDirectory(project.getLayout().getBuildDirectory().get().getAsFile());
         resChiperTask.setBuildConfiguration(
@@ -109,6 +110,7 @@ public class ResChiperPlugin implements Plugin<Project> {
 
         TaskProvider<ResChiperTask> resChiperTask = project.getTasks().register(taskName, ResChiperTask.class, task -> {
             task.setVariant(rawVariantName);
+            task.setBuildType(buildTypeName);
             task.setResChiperExtension(extension);
             task.setKeyStore(SigningConfig.getSigningConfig(project, buildTypeName));
             task.setBundleFile(bundleFile);

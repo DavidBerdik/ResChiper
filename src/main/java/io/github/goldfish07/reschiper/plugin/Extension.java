@@ -274,6 +274,8 @@ public class Extension {
                 "\tunusedStringFile=" + unusedStringFile + "\n" +
                 "\tfileFilterList=" + fileFilterList + "\n" +
                 "\tlocaleWhiteList=" + localeWhiteList + "\n" +
-                "\twhiteList=" + whiteList + "\n";
+                "\twhiteList=" + whiteList + "\n" +
+                "\tbuildUniversalApk=" + buildUniversalApk + "\n" +
+                "\tuniversalApkName=" + universalApkName + "\n";
     }
 }

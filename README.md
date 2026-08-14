@@ -261,6 +261,7 @@ Typical flow:
 3. Optional filters and duplicate merging run.
 4. Resource obfuscation runs.
 5. A new obfuscated `.aab` is written beside the original bundle output.
+6. If `buildUniversalApk` is enabled, a universal APK is built from that obfuscated bundle.
 
 ## Configuration Reference
 
@@ -277,7 +278,7 @@ Typical flow:
 | `enableFilterStrings` | `boolean` | `false` | Removes unused strings and optionally filters locales. |
 | `unusedStringFile` | `String` | `""` | Path to a newline-delimited `unused_strings.txt`. |
 | `localeWhiteList` | `Set<String>` | empty | Keeps only listed locales, such as `en`, `fr`, `in`. |
-| `buildUniversalApk` | `boolean` | `false` | Builds a universal APK from the obfuscated bundle when signing is configured. |
+| `buildUniversalApk` | `boolean` | `false` | Builds a universal APK from the obfuscated bundle. |
 | `universalApkName` | `String` | `"universal.apk"` | Output file name for the universal APK. Must end with `.apk`. |
 
 ## Whitelist Rules
@@ -311,6 +312,15 @@ ResChiper writes files into the same bundle output directory as the original `.a
 - `<module>-duplicate.txt`: duplicate resource report when duplicate merging is enabled
 - universal APK: the file named by `universalApkName` when `buildUniversalApk` is enabled
 
+Signing for the obfuscated bundle and universal APK is resolved in this order:
+
+1. The variant build-type `signingConfig` in the Android DSL
+2. Android Studio injected properties (`android.injected.signing.*`) from **Build > Generate Signed App Bundle / APK > Android App Bundle**
+3. The Android debug keystore
+4. Unsigned, if none of the above are available
+
+**Generate Signed Bundle** (the Android App Bundle option) runs `bundle<Variant>` and therefore runs ResChiper. **Generate Signed APK** runs `assemble<Variant>` and does not.
+
 ## Sample Projects
 
 This repository includes two runnable sample apps:
@@ -330,7 +340,7 @@ Example commands:
 ## Notes and Limitations
 
 - ResChiper requires `com.android.application`; library modules are rejected.
-- The plugin is designed around `.aab` processing.
+- The plugin is designed around `.aab` processing. Use `bundle<Variant>` or Android Studio **Generate Signed Bundle**. **Generate Signed APK** does not invoke ResChiper.
 - If you enable file filtering, only `META-INF/` and `lib/` entries are supported by the implementation.
 - If you enable string filtering, provide `unusedStringFile` unless your build already produces an `unused_strings.txt` report that ResChiper can reuse.
 

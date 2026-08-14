@@ -185,11 +185,15 @@ public abstract class Command {
             }
 
             // package universal apk
-            if (getBuildUniversalApk().isPresent() && getBuildUniversalApk().get() && getStoreFile().isPresent()
-                    && getKeyAlias().isPresent() && getStorePassword().isPresent() && getKeyPassword().isPresent()) {
+            if (shouldBuildUniversalApk(getBuildUniversalApk())) {
                 UniversalApkPackager apkPackager = new UniversalApkPackager(
-                        getUniversalApkPath(), getBuildToolInfo(), getOutputPath(), getStoreFile().get(),
-                        getKeyAlias().get(), getStorePassword().get(), getKeyPassword().get());
+                        getUniversalApkPath(),
+                        getBuildToolInfo(),
+                        getOutputPath(),
+                        getStoreFile().orElse(null),
+                        getKeyAlias().orElse(null),
+                        getStorePassword().orElse(null),
+                        getKeyPassword().orElse(null));
                 apkPackager.packageApk();
             }
 
@@ -286,6 +290,10 @@ public abstract class Command {
 
     static boolean shouldSign(@NotNull Optional<Boolean> disableSign) {
         return disableSign.isEmpty() || !disableSign.get();
+    }
+
+    static boolean shouldBuildUniversalApk(@NotNull Optional<Boolean> buildUniversalApk) {
+        return buildUniversalApk.isPresent() && Boolean.TRUE.equals(buildUniversalApk.get());
     }
 
     /**

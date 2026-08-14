@@ -8,12 +8,14 @@ import io.github.goldfish07.reschiper.plugin.command.model.StringFilterCommand;
 import io.github.goldfish07.reschiper.plugin.Extension;
 import io.github.goldfish07.reschiper.plugin.ResChiper;
 import io.github.goldfish07.reschiper.plugin.internal.BuildToolInfo;
+import io.github.goldfish07.reschiper.plugin.internal.SigningConfig;
 import io.github.goldfish07.reschiper.plugin.model.KeyStore;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskAction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -28,6 +30,7 @@ public class ResChiperTask extends DefaultTask {
     private static final Logger logger = Logger.getLogger(ResChiperTask.class.getName());
     private Extension resChiperExtension;
     private String variantName;
+    private String buildTypeName;
     private KeyStore keyStore;
     private Provider<RegularFile> bundleFile;
     private File buildDirectory;
@@ -50,6 +53,10 @@ public class ResChiperTask extends DefaultTask {
 
     public void setVariant(String variantName) {
         this.variantName = variantName;
+    }
+
+    public void setBuildType(String buildTypeName) {
+        this.buildTypeName = buildTypeName;
     }
 
     public void setResChiperExtension(Extension resChiperExtension) {
@@ -88,7 +95,8 @@ public class ResChiperTask extends DefaultTask {
         obfuscatedBundlePath = new File(bundlePath.toFile().getParentFile(), resChiperExtension.getObfuscatedBundleName()).toPath();
         universalApkPath = new File(bundlePath.toFile().getParentFile(), resChiperExtension.getUniversalApkName()).toPath();
         buildToolInfo = BuildToolInfo.getBuildToolInfo(getProject());
-        printSignConfiguration();
+        KeyStore resolvedKeyStore = resolveKeyStore();
+        printSignConfiguration(resolvedKeyStore);
         printOutputFileLocation();
         prepareUnusedFile();
         Command.Builder builder = Command.builder();
@@ -111,11 +119,11 @@ public class ResChiperTask extends DefaultTask {
         if (resChiperExtension.getMappingFile() != null)
             obfuscateBuilder.setMappingPath(resChiperExtension.getMappingFile());
 
-        if (keyStore.storeFile() != null && keyStore.storeFile().exists())
-            builder.setStoreFile(keyStore.storeFile().toPath())
-                    .setKeyAlias(keyStore.keyAlias())
-                    .setKeyPassword(keyStore.keyPassword())
-                    .setStorePassword(keyStore.storePassword());
+        if (resolvedKeyStore.storeFile() != null && resolvedKeyStore.storeFile().exists())
+            builder.setStoreFile(resolvedKeyStore.storeFile().toPath())
+                    .setKeyAlias(resolvedKeyStore.keyAlias())
+                    .setKeyPassword(resolvedKeyStore.keyPassword())
+                    .setStorePassword(resolvedKeyStore.storePassword());
 
         builder.setObfuscateBundleBuilder(obfuscateBuilder.build());
 
@@ -180,16 +188,35 @@ public class ResChiperTask extends DefaultTask {
     }
 
     /**
+     * Re-resolves signing at execution time so Android Studio injected credentials are not
+     * lost to a configuration-cache snapshot taken from an unsigned CLI build.
+     */
+    private @NotNull KeyStore resolveKeyStore() {
+        KeyStore executeTime = SigningConfig.getSigningConfig(getProject(), effectiveBuildTypeName());
+        if (SigningConfig.isUsable(executeTime))
+            return executeTime;
+        if (SigningConfig.isUsable(keyStore))
+            return keyStore;
+        return executeTime;
+    }
+
+    private @Nullable String effectiveBuildTypeName() {
+        if (buildTypeName != null && !buildTypeName.isBlank())
+            return buildTypeName;
+        return variantName;
+    }
+
+    /**
      * Prints the signing configuration.
      */
-    private void printSignConfiguration() {
+    private void printSignConfiguration(@NotNull KeyStore resolvedKeyStore) {
         System.out.println("----------------------------------------");
         System.out.println(" Signing Configuration");
         System.out.println("----------------------------------------");
-        System.out.println("\tKeyStoreFile:\t\t" + keyStore.storeFile());
-        System.out.println("\tKeyPassword:\t" + encrypt(keyStore.keyPassword()));
-        System.out.println("\tAlias:\t\t\t" + encrypt(keyStore.keyAlias()));
-        System.out.println("\tStorePassword:\t" + encrypt(keyStore.storePassword()));
+        System.out.println("\tKeyStoreFile:\t\t" + resolvedKeyStore.storeFile());
+        System.out.println("\tKeyPassword:\t" + encrypt(resolvedKeyStore.keyPassword()));
+        System.out.println("\tAlias:\t\t\t" + encrypt(resolvedKeyStore.keyAlias()));
+        System.out.println("\tStorePassword:\t" + encrypt(resolvedKeyStore.storePassword()));
     }
 
     /**
@@ -201,6 +228,8 @@ public class ResChiperTask extends DefaultTask {
         System.out.println("----------------------------------------");
         System.out.println("\tFolder:\t\t" + obfuscatedBundlePath.getParent());
         System.out.println("\tFile:\t\t" + obfuscatedBundlePath.getFileName());
+        if (resChiperExtension.getBuildUniversalApk())
+            System.out.println("\tUniversal APK:\t" + universalApkPath.getFileName());
         System.out.println("----------------------------------------");
     }
 

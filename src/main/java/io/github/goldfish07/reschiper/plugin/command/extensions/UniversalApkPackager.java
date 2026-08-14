@@ -5,7 +5,9 @@ import com.android.tools.build.bundletool.androidtools.Aapt2Command;
 import com.android.tools.build.bundletool.commands.BuildApksCommand;
 import com.android.tools.build.bundletool.model.Password;
 import com.android.tools.build.bundletool.model.SigningConfiguration;
+import com.android.tools.build.bundletool.model.exceptions.CommandExecutionException;
 import io.github.goldfish07.reschiper.plugin.utils.TimeClock;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -35,20 +37,21 @@ public class UniversalApkPackager {
      * @param universalApkPath A Path object representing where the universal APK is to be stored.
      * @param buildToolInfo A BuildToolInfo object used for providing build environment info to Bundletool.
      * @param bundlePath A Path object representing where the AAB is stored.
-     * @param keystoreFile A Path object representing where the keystore file is located.
-     * @param keyAlias The key alias.
-     * @param storePassword The keystore password.
-     * @param keyPassword The key password.
+     * @param keystoreFile A Path object representing where the keystore file is located, or {@code null} for unsigned.
+     * @param keyAlias The key alias, or {@code null} for unsigned.
+     * @param storePassword The keystore password, or {@code null} for unsigned.
+     * @param keyPassword The key password, or {@code null} for unsigned.
      */
-    public UniversalApkPackager(Path universalApkPath, BuildToolInfo buildToolInfo, Path bundlePath, Path keystoreFile,
-                                String keyAlias, String storePassword, String keyPassword) {
+    public UniversalApkPackager(Path universalApkPath, BuildToolInfo buildToolInfo, Path bundlePath,
+                                @Nullable Path keystoreFile, @Nullable String keyAlias,
+                                @Nullable String storePassword, @Nullable String keyPassword) {
         this.universalApkPath = universalApkPath;
         this.buildToolInfo = buildToolInfo;
         this.bundlePath = bundlePath;
         this.keystoreFile = keystoreFile;
         this.keyAlias = keyAlias;
-        this.storePassword = "pass:" + storePassword;
-        this.keyPassword = "pass:" + keyPassword;
+        this.storePassword = prefixPassword(storePassword);
+        this.keyPassword = prefixPassword(keyPassword);
     }
 
     /**
@@ -75,7 +78,7 @@ public class UniversalApkPackager {
                 .setApkBuildMode(BuildApksCommand.ApkBuildMode.UNIVERSAL)
                 .setOutputFormat(BuildApksCommand.OutputFormat.APK_SET);
 
-        if (keystoreFile.toFile().exists()) {
+        if (canSign(keystoreFile, keyAlias, storePassword, keyPassword)) {
             command.setSigningConfiguration(SigningConfiguration.extractFromKeystore(
                     keystoreFile,
                     keyAlias,
@@ -91,23 +94,38 @@ public class UniversalApkPackager {
             "universal.apk" that we should extract.
          */
         System.out.println("- Extracting universal APK from APKS...");
-        InputStream inputStream;
         try (ZipFile zipFile = new ZipFile(apksPath.toFile())) {
             ZipEntry zipEntry = zipFile.getEntry("universal.apk");
-            inputStream = zipFile.getInputStream(zipEntry);
+            if (zipEntry == null)
+                throw CommandExecutionException.builder()
+                        .withInternalMessage("APKS file %s does not contain universal.apk", apksPath)
+                        .build();
 
-            try (FileOutputStream fileOutputStream = new FileOutputStream(universalApkPath.toFile())) {
+            try (InputStream inputStream = zipFile.getInputStream(zipEntry);
+                 FileOutputStream fileOutputStream = new FileOutputStream(universalApkPath.toFile())) {
                 byte[] buffer = new byte[1024];
                 int bytesRead;
                 while ((bytesRead = inputStream.read(buffer)) != -1) {
                     fileOutputStream.write(buffer, 0, bytesRead);
                 }
             }
-            inputStream.close();
-            zipFile.close();
-
-            Files.deleteIfExists(apksPath);
         }
+        Files.deleteIfExists(apksPath);
         System.out.printf("- Universal APK packaged in %s%n\n", timeClock.getElapsedTime());
+    }
+
+    static boolean canSign(@Nullable Path keystoreFile, @Nullable String keyAlias,
+                           @Nullable String storePassword, @Nullable String keyPassword) {
+        return keystoreFile != null
+                && keystoreFile.toFile().exists()
+                && keyAlias != null
+                && storePassword != null
+                && keyPassword != null;
+    }
+
+    private static @Nullable String prefixPassword(@Nullable String password) {
+        if (password == null)
+            return null;
+        return "pass:" + password;
     }
 }
