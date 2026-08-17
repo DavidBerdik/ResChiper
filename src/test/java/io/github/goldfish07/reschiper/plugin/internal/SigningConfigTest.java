@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -68,6 +69,36 @@ class SigningConfigTest {
         assertTrue(storeFile.createNewFile());
 
         assertFalse(SigningConfig.isUsable(new KeyStore(storeFile, " ", "alias", "key")));
+    }
+
+    @Test
+    void fromInjectedReturnsEmptyWhenAnyValueIsMissing() throws IOException {
+        File storeFile = tempDir.resolve("injected.jks").toFile();
+        assertTrue(storeFile.createNewFile());
+        String path = storeFile.getAbsolutePath();
+
+        assertFalse(SigningConfig.isUsable(SigningConfig.fromInjected(null, "store", "alias", "key")));
+        assertFalse(SigningConfig.isUsable(SigningConfig.fromInjected(path, null, "alias", "key")));
+        assertFalse(SigningConfig.isUsable(SigningConfig.fromInjected(path, "store", null, "key")));
+        assertFalse(SigningConfig.isUsable(SigningConfig.fromInjected(path, "store", "alias", null)));
+        assertFalse(SigningConfig.isUsable(SigningConfig.fromInjected(path, " ", "alias", "key")));
+    }
+
+    @Test
+    void fromInjectedReturnsUsableKeyStoreWhenAllValuesArePresent() throws IOException {
+        File storeFile = tempDir.resolve("injected.jks").toFile();
+        assertTrue(storeFile.createNewFile());
+
+        KeyStore injected = SigningConfig.fromInjected(
+                storeFile.getAbsolutePath(),
+                "store-pass",
+                "injected-alias",
+                "key-pass"
+        );
+
+        assertTrue(SigningConfig.isUsable(injected));
+        assertEquals(storeFile, injected.storeFile());
+        assertEquals("injected-alias", injected.keyAlias());
     }
 
     private KeyStore usableKeyStore(String name) throws IOException {

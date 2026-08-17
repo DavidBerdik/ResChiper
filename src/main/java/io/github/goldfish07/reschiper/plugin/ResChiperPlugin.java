@@ -1,5 +1,7 @@
 package io.github.goldfish07.reschiper.plugin;
 
+import com.android.build.api.dsl.ApplicationExtension;
+import com.android.build.api.variant.AndroidComponentsExtension;
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension;
 import com.android.build.api.artifact.SingleArtifact;
 import com.android.build.gradle.AppExtension;
@@ -12,10 +14,12 @@ import org.gradle.api.Action;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.file.Directory;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskProvider;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Plugin for integrating ResChiper into an Android Gradle project.
@@ -80,6 +84,7 @@ public class ResChiperPlugin implements Plugin<Project> {
         resChiperTask.setResChiperExtension(extension);
         resChiperTask.setKeyStore(SigningConfig.getSigningConfig(project, variant));
         resChiperTask.setBundleFile(getBundleFileProvider(finalizeBundleTask));
+        configureCapturedProjectState(project, resChiperTask);
         resChiperTask.setBuildDirectory(project.getLayout().getBuildDirectory().get().getAsFile());
         resChiperTask.setBuildConfiguration(
                 buildConfiguration.projectName(),
@@ -114,6 +119,7 @@ public class ResChiperPlugin implements Plugin<Project> {
             task.setResChiperExtension(extension);
             task.setKeyStore(SigningConfig.getSigningConfig(project, buildTypeName));
             task.setBundleFile(bundleFile);
+            configureCapturedProjectState(project, task);
             task.setBuildDirectory(project.getLayout().getBuildDirectory().get().getAsFile());
             task.setBuildConfiguration(
                     buildConfiguration.projectName(),
@@ -129,9 +135,40 @@ public class ResChiperPlugin implements Plugin<Project> {
                 .configureEach(task -> task.dependsOn(resChiperTask));
     }
 
+    private void configureCapturedProjectState(@NotNull Project project, @NotNull ResChiperTask task) {
+        task.setSdkDirectory(sdkDirectory(project));
+        task.setConfiguredBuildToolsVersion(readBuildToolsVersion(project));
+        task.setInjectedSigning(
+                project.getProviders().gradleProperty(SigningConfig.INJECTED_STORE_FILE),
+                project.getProviders().gradleProperty(SigningConfig.INJECTED_STORE_PASSWORD),
+                project.getProviders().gradleProperty(SigningConfig.INJECTED_KEY_ALIAS),
+                project.getProviders().gradleProperty(SigningConfig.INJECTED_KEY_PASSWORD)
+        );
+    }
+
     @SuppressWarnings("unchecked")
     private Provider<RegularFile> getBundleFileProvider(@NotNull Task task) {
         return (Provider<RegularFile>) task.property("finalBundleFile");
+    }
+
+    private static @NotNull Provider<Directory> sdkDirectory(@NotNull Project project) {
+        return project.getExtensions()
+                .getByType(AndroidComponentsExtension.class)
+                .getSdkComponents()
+                .getSdkDirectory();
+    }
+
+    private static @Nullable String readBuildToolsVersion(@NotNull Project project) {
+        try {
+            String version = project.getExtensions()
+                    .getByType(ApplicationExtension.class)
+                    .getBuildToolsVersion();
+            if (version == null || version.isBlank())
+                return null;
+            return version;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     /**

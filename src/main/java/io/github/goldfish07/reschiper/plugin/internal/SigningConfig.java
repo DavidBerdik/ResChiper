@@ -8,7 +8,6 @@ import io.github.goldfish07.reschiper.plugin.android.AndroidDebugKeyStoreHelper;
 import io.github.goldfish07.reschiper.plugin.android.JarSigner;
 import io.github.goldfish07.reschiper.plugin.model.KeyStore;
 import org.gradle.api.Project;
-import org.gradle.api.provider.Provider;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -27,28 +26,25 @@ public class SigningConfig {
     }
 
     /**
-     * Resolves signing for a build type: DSL config, then Android Studio injected properties,
-     * then the debug keystore. Returns {@link #empty()} only when none of those exist.
+     * Returns the DSL signing config for a build type. Injected Android Studio properties and the
+     * debug keystore are resolved later at task execution time.
      */
     @Contract("_, _ -> new")
     public static @NotNull KeyStore getSigningConfig(@NotNull Project project, @Nullable String buildTypeName) {
-        return resolve(project, fromBuildType(project, buildTypeName));
+        return fromBuildType(project, buildTypeName);
     }
 
     /**
-     * Resolves signing for a legacy application variant using the same fallback order as
-     * {@link #getSigningConfig(Project, String)}.
+     * Returns the DSL signing config for a legacy application variant. Injected Android Studio
+     * properties and the debug keystore are resolved later at task execution time.
      */
     @Contract("_, _ -> new")
     public static @NotNull KeyStore getSigningConfig(@NotNull Project project, @NotNull ApplicationVariant variant) {
-        return resolve(project, fromVariant(variant));
+        return fromVariant(variant);
     }
 
-    static @NotNull KeyStore resolve(@NotNull Project project, @Nullable KeyStore dslOrEmpty) {
-        return resolve(dslOrEmpty, fromInjectedProperties(project), fromDebugKeystore());
-    }
-
-    static @NotNull KeyStore resolve(@Nullable KeyStore dslOrEmpty, @Nullable KeyStore injected, @Nullable KeyStore debug) {
+    @Contract("_, _, _ -> new")
+    public static @NotNull KeyStore resolve(@Nullable KeyStore dslOrEmpty, @Nullable KeyStore injected, @Nullable KeyStore debug) {
         if (isUsable(dslOrEmpty))
             return dslOrEmpty;
         if (isUsable(injected))
@@ -65,6 +61,34 @@ public class SigningConfig {
                 && !isBlank(keyStore.storePassword())
                 && !isBlank(keyStore.keyAlias())
                 && !isBlank(keyStore.keyPassword());
+    }
+
+    /**
+     * Builds a keystore from Android Studio injected signing properties. Returns {@link #empty()}
+     * when any value is missing or blank.
+     */
+    @Contract("_, _, _, _ -> new")
+    public static @NotNull KeyStore fromInjected(
+            @Nullable String storeFile,
+            @Nullable String storePassword,
+            @Nullable String keyAlias,
+            @Nullable String keyPassword
+    ) {
+        if (isBlank(storeFile) || isBlank(storePassword) || isBlank(keyAlias) || isBlank(keyPassword))
+            return empty();
+        return new KeyStore(new File(storeFile), storePassword, keyAlias, keyPassword);
+    }
+
+    public static @NotNull KeyStore fromDebugKeystore() {
+        JarSigner.Signature debug = AndroidDebugKeyStoreHelper.debugSigningConfig();
+        if (debug == null || debug.storeFile() == null)
+            return empty();
+        return new KeyStore(
+                debug.storeFile().toFile(),
+                debug.storePassword(),
+                debug.keyAlias(),
+                debug.keyPassword()
+        );
     }
 
     private static @NotNull KeyStore fromBuildType(@NotNull Project project, @Nullable String buildTypeName) {
@@ -103,42 +127,6 @@ public class SigningConfig {
                 signingConfig.getKeyAlias(),
                 signingConfig.getKeyPassword()
         );
-    }
-
-    private static @NotNull KeyStore fromInjectedProperties(@NotNull Project project) {
-        String storeFile = readProperty(project, INJECTED_STORE_FILE);
-        String storePassword = readProperty(project, INJECTED_STORE_PASSWORD);
-        String keyAlias = readProperty(project, INJECTED_KEY_ALIAS);
-        String keyPassword = readProperty(project, INJECTED_KEY_PASSWORD);
-        if (isBlank(storeFile) || isBlank(storePassword) || isBlank(keyAlias) || isBlank(keyPassword))
-            return empty();
-        return new KeyStore(new File(storeFile), storePassword, keyAlias, keyPassword);
-    }
-
-    private static @NotNull KeyStore fromDebugKeystore() {
-        JarSigner.Signature debug = AndroidDebugKeyStoreHelper.debugSigningConfig();
-        if (debug == null || debug.storeFile() == null)
-            return empty();
-        return new KeyStore(
-                debug.storeFile().toFile(),
-                debug.storePassword(),
-                debug.keyAlias(),
-                debug.keyPassword()
-        );
-    }
-
-    private static @Nullable String readProperty(@NotNull Project project, @NotNull String name) {
-        Object extra = project.findProperty(name);
-        if (extra != null) {
-            String value = extra.toString();
-            if (!isBlank(value))
-                return value;
-        }
-        Provider<String> gradleProperty = project.getProviders().gradleProperty(name);
-        String value = gradleProperty.getOrNull();
-        if (!isBlank(value))
-            return value;
-        return null;
     }
 
     private static boolean isBlank(@Nullable String value) {

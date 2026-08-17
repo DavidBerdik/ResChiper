@@ -10,6 +10,7 @@ import io.github.goldfish07.reschiper.plugin.ResChiper;
 import io.github.goldfish07.reschiper.plugin.internal.BuildToolInfo;
 import io.github.goldfish07.reschiper.plugin.internal.SigningConfig;
 import io.github.goldfish07.reschiper.plugin.model.KeyStore;
+import org.gradle.api.file.Directory;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.provider.Provider;
@@ -19,6 +20,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -28,19 +31,36 @@ import java.util.logging.Logger;
 public class ResChiperTask extends DefaultTask {
 
     private static final Logger logger = Logger.getLogger(ResChiperTask.class.getName());
-    private Extension resChiperExtension;
     private String variantName;
     private String buildTypeName;
     private KeyStore keyStore;
     private Provider<RegularFile> bundleFile;
+    private Provider<Directory> sdkDirectory;
+    private String configuredBuildToolsVersion;
+    private Provider<String> injectedStoreFile;
+    private Provider<String> injectedStorePassword;
+    private Provider<String> injectedKeyAlias;
+    private Provider<String> injectedKeyPassword;
     private File buildDirectory;
     private String projectName;
     private String agpVersion;
     private String gradleVersion;
+    private boolean enableObfuscation = true;
+    private String obfuscationMode = "default";
+    private boolean enableFileFiltering;
+    private boolean enableFilterStrings;
+    private boolean mergeDuplicateResources;
+    private Path mappingFile;
+    private String obfuscatedBundleName;
+    private String unusedStringFile = "";
+    private Set<String> fileFilterList = new HashSet<>();
+    private Set<String> whiteList = new HashSet<>();
+    private Set<String> localeWhiteList = new HashSet<>();
+    private boolean buildUniversalApk;
+    private String universalApkName = "universal.apk";
     private Path bundlePath;
     private Path obfuscatedBundlePath;
     private Path universalApkPath;
-    private com.android.sdklib.BuildToolInfo buildToolInfo;
 
     /**
      * Constructor for the ResChiperTask.
@@ -60,7 +80,19 @@ public class ResChiperTask extends DefaultTask {
     }
 
     public void setResChiperExtension(Extension resChiperExtension) {
-        this.resChiperExtension = resChiperExtension;
+        this.enableObfuscation = resChiperExtension.getEnableObfuscation();
+        this.obfuscationMode = resChiperExtension.getObfuscationMode();
+        this.enableFileFiltering = resChiperExtension.getEnableFileFiltering();
+        this.enableFilterStrings = resChiperExtension.getEnableFilterStrings();
+        this.mergeDuplicateResources = resChiperExtension.getMergeDuplicateResources();
+        this.mappingFile = resChiperExtension.getMappingFile();
+        this.obfuscatedBundleName = resChiperExtension.getObfuscatedBundleName();
+        this.unusedStringFile = resChiperExtension.getUnusedStringFile();
+        this.fileFilterList = copyOf(resChiperExtension.getFileFilterList());
+        this.whiteList = copyOf(resChiperExtension.getWhiteList());
+        this.localeWhiteList = copyOf(resChiperExtension.getLocaleWhiteList());
+        this.buildUniversalApk = resChiperExtension.getBuildUniversalApk();
+        this.universalApkName = resChiperExtension.getUniversalApkName();
     }
 
     public void setKeyStore(KeyStore keyStore) {
@@ -69,6 +101,26 @@ public class ResChiperTask extends DefaultTask {
 
     public void setBundleFile(Provider<RegularFile> bundleFile) {
         this.bundleFile = bundleFile;
+    }
+
+    public void setSdkDirectory(Provider<Directory> sdkDirectory) {
+        this.sdkDirectory = sdkDirectory;
+    }
+
+    public void setConfiguredBuildToolsVersion(@Nullable String configuredBuildToolsVersion) {
+        this.configuredBuildToolsVersion = configuredBuildToolsVersion;
+    }
+
+    public void setInjectedSigning(
+            Provider<String> injectedStoreFile,
+            Provider<String> injectedStorePassword,
+            Provider<String> injectedKeyAlias,
+            Provider<String> injectedKeyPassword
+    ) {
+        this.injectedStoreFile = injectedStoreFile;
+        this.injectedStorePassword = injectedStorePassword;
+        this.injectedKeyAlias = injectedKeyAlias;
+        this.injectedKeyPassword = injectedKeyPassword;
     }
 
     public void setBuildDirectory(File buildDirectory) {
@@ -90,11 +142,14 @@ public class ResChiperTask extends DefaultTask {
     public void execute() throws Exception {
         printResChiperBuildConfiguration();
         printProjectBuildConfiguration();
-        logger.log(Level.INFO, resChiperExtension.toString());
+        logger.log(Level.INFO, describeConfiguration());
         bundlePath = bundleFile.get().getAsFile().toPath();
-        obfuscatedBundlePath = new File(bundlePath.toFile().getParentFile(), resChiperExtension.getObfuscatedBundleName()).toPath();
-        universalApkPath = new File(bundlePath.toFile().getParentFile(), resChiperExtension.getUniversalApkName()).toPath();
-        buildToolInfo = BuildToolInfo.getBuildToolInfo(getProject());
+        obfuscatedBundlePath = new File(bundlePath.toFile().getParentFile(), obfuscatedBundleName).toPath();
+        universalApkPath = new File(bundlePath.toFile().getParentFile(), universalApkName).toPath();
+        com.android.sdklib.BuildToolInfo buildToolInfo = BuildToolInfo.getBuildToolInfo(
+                sdkDirectory.get().getAsFile().toPath(),
+                configuredBuildToolsVersion
+        );
         KeyStore resolvedKeyStore = resolveKeyStore();
         printSignConfiguration(resolvedKeyStore);
         printOutputFileLocation();
@@ -103,21 +158,21 @@ public class ResChiperTask extends DefaultTask {
         builder.setBundlePath(bundlePath);
         builder.setOutputPath(obfuscatedBundlePath);
         builder.setUniversalApkPath(universalApkPath);
-        builder.setBuildUniversalApk(resChiperExtension.getBuildUniversalApk());
+        builder.setBuildUniversalApk(buildUniversalApk);
         builder.setBuildToolInfo(buildToolInfo);
 
         ObfuscateBundleCommand.Builder obfuscateBuilder = ObfuscateBundleCommand.builder()
-                .setEnableObfuscate(resChiperExtension.getEnableObfuscation())
-                .setObfuscationMode(resChiperExtension.getObfuscationMode())
-                .setMergeDuplicatedResources(resChiperExtension.getMergeDuplicateResources())
-                .setWhiteList(resChiperExtension.getWhiteList())
-                .setFilterFile(resChiperExtension.getEnableFileFiltering())
-                .setFileFilterRules(resChiperExtension.getFileFilterList())
-                .setRemoveStr(resChiperExtension.getEnableFilterStrings())
-                .setUnusedStrPath(resChiperExtension.getUnusedStringFile())
-                .setLanguageWhiteList(resChiperExtension.getLocaleWhiteList());
-        if (resChiperExtension.getMappingFile() != null)
-            obfuscateBuilder.setMappingPath(resChiperExtension.getMappingFile());
+                .setEnableObfuscate(enableObfuscation)
+                .setObfuscationMode(obfuscationMode)
+                .setMergeDuplicatedResources(mergeDuplicateResources)
+                .setWhiteList(whiteList)
+                .setFilterFile(enableFileFiltering)
+                .setFileFilterRules(fileFilterList)
+                .setRemoveStr(enableFilterStrings)
+                .setUnusedStrPath(unusedStringFile)
+                .setLanguageWhiteList(localeWhiteList);
+        if (mappingFile != null)
+            obfuscateBuilder.setMappingPath(mappingFile);
 
         if (resolvedKeyStore.storeFile() != null && resolvedKeyStore.storeFile().exists())
             builder.setStoreFile(resolvedKeyStore.storeFile().toPath())
@@ -128,7 +183,7 @@ public class ResChiperTask extends DefaultTask {
         builder.setObfuscateBundleBuilder(obfuscateBuilder.build());
 
         FileFilterCommand.Builder fileFilterBuilder = FileFilterCommand.builder();
-        fileFilterBuilder.setFileFilterRules(resChiperExtension.getFileFilterList());
+        fileFilterBuilder.setFileFilterRules(fileFilterList);
         builder.setFileFilterBuilder(fileFilterBuilder.build());
 
         StringFilterCommand.Builder stringFilterBuilder = StringFilterCommand.builder();
@@ -164,6 +219,8 @@ public class ResChiperTask extends DefaultTask {
         System.out.println("- Project name:\t\t\t" + projectName);
         System.out.println("- AGP version:\t\t\t" + agpVersion);
         System.out.println("- Running Gradle version:\t" + gradleVersion);
+        if (buildTypeName != null && !buildTypeName.isBlank())
+            System.out.println("- Build type:\t\t\t" + buildTypeName);
     }
 
     /**
@@ -177,14 +234,14 @@ public class ResChiperTask extends DefaultTask {
 
         if (usedFile.exists()) {
             System.out.println("find unused_strings.txt: " + usedFile.getAbsolutePath());
-            if (resChiperExtension.getEnableFilterStrings())
-                if (resChiperExtension.getUnusedStringFile() == null || resChiperExtension.getUnusedStringFile().isBlank()) {
-                    resChiperExtension.setUnusedStringFile(usedFile.getAbsolutePath());
+            if (enableFilterStrings)
+                if (unusedStringFile == null || unusedStringFile.isBlank()) {
+                    unusedStringFile = usedFile.getAbsolutePath();
                     logger.log(Level.SEVERE, "replace unused_strings.txt!");
                 }
         } else
             logger.log(Level.SEVERE, "not exists unused_strings.txt: " + usedFile.getAbsolutePath()
-                    + "\nuse default path: " + resChiperExtension.getUnusedStringFile());
+                    + "\nuse default path: " + unusedStringFile);
     }
 
     /**
@@ -192,18 +249,38 @@ public class ResChiperTask extends DefaultTask {
      * lost to a configuration-cache snapshot taken from an unsigned CLI build.
      */
     private @NotNull KeyStore resolveKeyStore() {
-        KeyStore executeTime = SigningConfig.getSigningConfig(getProject(), effectiveBuildTypeName());
-        if (SigningConfig.isUsable(executeTime))
-            return executeTime;
-        if (SigningConfig.isUsable(keyStore))
-            return keyStore;
-        return executeTime;
+        KeyStore injected = SigningConfig.fromInjected(
+                getOrNull(injectedStoreFile),
+                getOrNull(injectedStorePassword),
+                getOrNull(injectedKeyAlias),
+                getOrNull(injectedKeyPassword)
+        );
+        return SigningConfig.resolve(keyStore, injected, SigningConfig.fromDebugKeystore());
     }
 
-    private @Nullable String effectiveBuildTypeName() {
-        if (buildTypeName != null && !buildTypeName.isBlank())
-            return buildTypeName;
-        return variantName;
+    private static @Nullable String getOrNull(@Nullable Provider<String> provider) {
+        return provider == null ? null : provider.getOrNull();
+    }
+
+    private static @NotNull Set<String> copyOf(@Nullable Set<String> values) {
+        return values == null ? new HashSet<>() : new HashSet<>(values);
+    }
+
+    private @NotNull String describeConfiguration() {
+        return "-------------- Extension --------------\n" +
+                "\tenableObfuscation=" + enableObfuscation + "\n" +
+                "\tobfuscationMode=" + obfuscationMode + "\n" +
+                "\tenableFileFiltering=" + enableFileFiltering + "\n" +
+                "\tenableFilterStrings=" + enableFilterStrings + "\n" +
+                "\tmergeDuplicateResources=" + mergeDuplicateResources + "\n" +
+                "\tmappingFile=" + mappingFile + "\n" +
+                "\tobfuscatedBundleName=" + obfuscatedBundleName + "\n" +
+                "\tunusedStringFile=" + unusedStringFile + "\n" +
+                "\tfileFilterList=" + fileFilterList + "\n" +
+                "\tlocaleWhiteList=" + localeWhiteList + "\n" +
+                "\twhiteList=" + whiteList + "\n" +
+                "\tbuildUniversalApk=" + buildUniversalApk + "\n" +
+                "\tuniversalApkName=" + universalApkName + "\n";
     }
 
     /**
@@ -228,7 +305,7 @@ public class ResChiperTask extends DefaultTask {
         System.out.println("----------------------------------------");
         System.out.println("\tFolder:\t\t" + obfuscatedBundlePath.getParent());
         System.out.println("\tFile:\t\t" + obfuscatedBundlePath.getFileName());
-        if (resChiperExtension.getBuildUniversalApk())
+        if (buildUniversalApk)
             System.out.println("\tUniversal APK:\t" + universalApkPath.getFileName());
         System.out.println("----------------------------------------");
     }

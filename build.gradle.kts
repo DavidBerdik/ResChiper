@@ -52,6 +52,8 @@ repositories {
 dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("com.android.tools:common:31.9.0")
+    testImplementation("com.android.tools:sdklib:31.9.0")
 
     implementation(gradleApi())
     compileOnly("com.android.tools:common:31.9.0")

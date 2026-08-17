@@ -1,11 +1,8 @@
 package io.github.goldfish07.reschiper.plugin.internal;
 
 import com.android.SdkConstants;
-import com.android.build.api.dsl.ApplicationExtension;
-import com.android.build.api.variant.AndroidComponentsExtension;
 import com.android.repository.Revision;
 import org.gradle.api.GradleException;
-import org.gradle.api.Project;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,13 +12,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class BuildToolInfo {
-    public static @NotNull com.android.sdklib.BuildToolInfo getBuildToolInfo(Project project) {
-        Path sdkDirectory = Paths.get(
-                project.getExtensions().getByType(AndroidComponentsExtension.class).getSdkComponents()
-                        .getSdkDirectory().get().toString()
-        );
+    public static @NotNull com.android.sdklib.BuildToolInfo getBuildToolInfo(
+            @NotNull Path sdkDirectory,
+            @Nullable String configuredBuildToolsVersion
+    ) {
         Path buildToolsRoot = sdkDirectory.resolve(SdkConstants.FD_BUILD_TOOLS);
-        String version = resolveBuildToolsVersion(project, buildToolsRoot);
+        String version = resolveBuildToolsVersion(configuredBuildToolsVersion, buildToolsRoot);
         Path buildToolsDir = buildToolsRoot.resolve(version);
 
         com.android.sdklib.BuildToolInfo buildToolInfo =
@@ -38,27 +34,16 @@ public class BuildToolInfo {
         return buildToolInfo;
     }
 
-    private static @NotNull String resolveBuildToolsVersion(@NotNull Project project, @NotNull Path buildToolsRoot) {
-        String configured = readConfiguredBuildToolsVersion(project);
-        if (configured != null && !configured.isBlank())
-            return configured.trim();
+    private static @NotNull String resolveBuildToolsVersion(
+            @Nullable String configuredBuildToolsVersion,
+            @NotNull Path buildToolsRoot
+    ) {
+        if (configuredBuildToolsVersion != null && !configuredBuildToolsVersion.isBlank())
+            return configuredBuildToolsVersion.trim();
         String highest = highestInstalledBuildToolsVersion(buildToolsRoot);
         if (highest != null)
             return highest;
         throw new GradleException("No Android build-tools installation was found in " + buildToolsRoot);
-    }
-
-    private static @Nullable String readConfiguredBuildToolsVersion(@NotNull Project project) {
-        try {
-            String version = project.getExtensions()
-                    .getByType(ApplicationExtension.class)
-                    .getBuildToolsVersion();
-            if (version == null || version.isBlank())
-                return null;
-            return version;
-        } catch (Exception ignored) {
-            return null;
-        }
     }
 
     static @Nullable String highestInstalledBuildToolsVersion(@NotNull Path buildToolsRoot) {
